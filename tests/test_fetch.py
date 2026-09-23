@@ -1,0 +1,112 @@
+import json
+import subprocess
+
+import pytest
+
+from ingest.fetch import load_lock, main
+
+
+def git(cwd, *args):
+    return subprocess.run(
+        ["git", *args], cwd=cwd, check=True, capture_output=True, text=True
+    ).stdout.strip()
+
+
+def commit_files(repo, files, message):
+    for rel, text in files.items():
+        path = repo / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", message)
+    return git(repo, "rev-parse", "HEAD")
+
+
+@pytest.fixture
+def origin(tmp_path, monkeypatch):
+    """A local stand-in for kubernetes/website with one release branch."""
+    for var in ("AUTHOR", "COMMITTER"):
+        monkeypatch.setenv(f"GIT_{var}_NAME", "test")
+        monkeypatch.setenv(f"GIT_{var}_EMAIL", "test@example.com")
+    repo = tmp_path / "origin"
+    repo.mkdir()
+    git(repo, "init", "-q", "-b", "release-1.36")
+    # GitHub allows these; a local repo needs them for SHA fetches and --filter.
+    git(repo, "config", "uploadpack.allowAnySHA1InWant", "true")
+    git(repo, "config", "uploadpack.allowFilter", "true")
+    commit_files(
+        repo,
+        {
+            "content/en/docs/concepts/pods.md": "# Pods\n",
+            "content/en/docs/_index.md": "# Docs\n",
+            "content/en/examples/pods/simple-pod.yaml": "kind: Pod\n",
+            "content/ko/docs/concepts/pods.md": "# 파드\n",
+            "static/logo.svg": "<svg/>",
+        },
+        "v1",
+    )
+    return repo
+
+
+def run(origin, tmp_path, *extra):
+    lock = tmp_path / "sources.lock.json"
+    data = tmp_path / "data"
+    main(["--repo", f"file://{origin}", "--lock", str(lock), "--data-dir", str(data), *extra])
+    return lock, data / "release-1.36"
+
+
+def test_requires_update_when_lock_missing(origin, tmp_path):
+    with pytest.raises(SystemExit):
+        run(origin, tmp_path)
+
+
+def test_update_pins_branch_tip_and_checks_out_sparse_paths(origin, tmp_path, capsys):
+    tip = git(origin, "rev-parse", "HEAD")
+    lock, dest = run(origin, tmp_path, "--update", "--versions", "1.36")
+
+    src = load_lock(lock)["sources"]["1.36"]
+    assert src.branch == "release-1.36"
+    assert src.commit == tip
+    assert src.commit_date
+    assert git(dest, "rev-parse", "HEAD") == tip
+
+    files = sorted(str(p.relative_to(dest)) for p in dest.rglob("*") if ".git" not in p.parts)
+    files = [f for f in files if (dest / f).is_file()]
+    assert files == [
+        "content/en/docs/_index.md",
+        "content/en/docs/concepts/pods.md",
+        "content/en/examples/pods/simple-pod.yaml",
+    ]
+    assert "2 docs .md, 1 example files" in capsys.readouterr().out
+
+
+def test_fetch_uses_pinned_commit_not_branch_tip(origin, tmp_path):
+    lock, dest = run(origin, tmp_path, "--update", "--versions", "1.36")
+    pinned = load_lock(lock)["sources"]["1.36"].commit
+    lock_before = lock.read_text()
+
+    commit_files(origin, {"content/en/docs/new.md": "# New\n"}, "v2")
+    run(origin, tmp_path)
+
+    assert git(dest, "rev-parse", "HEAD") == pinned
+    assert not (dest / "content/en/docs/new.md").exists()
+    assert lock.read_text() == lock_before
+
+
+def test_second_run_is_noop(origin, tmp_path, capsys):
+    run(origin, tmp_path, "--update", "--versions", "1.36")
+    capsys.readouterr()
+    run(origin, tmp_path)
+    assert "up to date" in capsys.readouterr().out
+
+
+def test_update_moves_existing_checkout_to_new_tip(origin, tmp_path):
+    lock, dest = run(origin, tmp_path, "--update", "--versions", "1.36")
+    new_tip = commit_files(origin, {"content/en/docs/new.md": "# New\n"}, "v2")
+
+    run(origin, tmp_path, "--update")
+
+    assert load_lock(lock)["sources"]["1.36"].commit == new_tip
+    assert git(dest, "rev-parse", "HEAD") == new_tip
+    assert (dest / "content/en/docs/new.md").exists()
+    assert json.loads(lock.read_text())["repo"] == f"file://{origin}"

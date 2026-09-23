@@ -15,7 +15,11 @@ uv sync                              # installs Python 3.14 + dependencies
 cp .env.example .env
 uv run python -m scripts.init_db     # enables pgvector
 uv run pytest
+
+uv run python -m ingest.fetch        # docs at the commits pinned in ingest/sources.lock.json
 ```
+
+`ingest.fetch --update` re-pins each `release-1.xx` branch to its current tip.
 
 ## License
 

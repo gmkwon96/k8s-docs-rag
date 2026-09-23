@@ -1,0 +1,20 @@
+{
+  "repo": "https://github.com/kubernetes/website.git",
+  "sources": {
+    "1.34": {
+      "branch": "release-1.34",
+      "commit": "47132eb5367cfdcba0a3b33a0b3ffc81185bd7e8",
+      "commit_date": "2026-08-26T17:35:38Z"
+    },
+    "1.35": {
+      "branch": "release-1.35",
+      "commit": "8817d358864b70a9710c5ad34f78df6a239be33d",
+      "commit_date": "2026-08-26T17:35:38Z"
+    },
+    "1.36": {
+      "branch": "release-1.36",
+      "commit": "1de955ebabe7e17da1ebb4f582635491227f4157",
+      "commit_date": "2026-08-26T17:35:38Z"
+    }
+  }
+}
