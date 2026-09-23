@@ -75,7 +75,8 @@ def run(conn, embedder, items, *, k: int, index_name: str, cache: Cache) -> list
             conn, vector, item.version, k=k, model=embedder.name, index_name=index_name
         )
         latency = time.monotonic() - t0
-        metrics = score([h.text for h in hits], [e.quotes() for e in item.evidence])
+        facts = [[(p.url, p.quote) for p in e.passages()] for e in item.evidence]
+        metrics = score([(h.url, h.text) for h in hits], facts)
         rows.append(
             {
                 "id": item.id,

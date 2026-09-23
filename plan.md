@@ -96,6 +96,8 @@ Kubernetes 공식 문서를 근거로 답하는 Q&A 서비스. 목적은 미국 
 ### 1. 정답 세트 (golden set)
 목표 200~300문항. 각 문항 = `{question, reference_answer, evidence, version, category, answerable}`.
 
+- (현황) dev 120 / test 80 = 200문항, 카테고리 비율 목표와 일치. 버전 짝 문항 12쌍. dev/test 배정은 `eval/assign_split.py`(카테고리 층화, 고정 시드, 짝 문항은 같은 split)로 사람이 고르지 않음
+- 근거는 (페이지, 원문 문장) 쌍: 청크가 **같은 페이지**에서 나오고 문장을 포함해야 충족. "Feature state: ..." 같은 상용구가 최대 17개 페이지에 반복되므로 문장만으로는 오탐
 - (변경) 정답을 `gold_chunk_ids` 대신 **근거 문장(evidence quote) + 섹션 URL**로 표시: 청킹을 바꿔도(E1) 라벨이 유효. 검색된 청크가 근거 문장을 포함하면 relevant
 - 근거마다 **대체 근거(alternatives)**: 같은 사실을 다른 페이지가 말하면 그중 하나만 찾아도 충족. 검색이 놓친 문항의 상위 결과를 사람이 확인해 정당한 대체 근거를 추가(IR의 pooling 방식). 실험이 새로 찾은 대체 근거도 같은 방식으로 추가해야 설정 간 비교가 공정함
 - `eval/golden.py`(스키마), `eval/validate.py`: 근거 문장이 해당 버전 문서의 해당 섹션에 실제로 있는지, dev/test 간 중복 질문(누수), 카테고리 비율을 검사. 현재 청킹에서 근거 문장이 청크 경계에 걸리면 경고
