@@ -24,6 +24,12 @@ uv run python -m ingest.load         # into Postgres as index "heading-plain"
 uv run python -m ingest.embed        # voyage-4 vectors + HNSW index (needs VOYAGE_API_KEY)
 ```
 
+Golden set (`eval/dataset/{dev,test}.jsonl`) checks: schema, dev/test leakage, and that every evidence quote exists in its version's docs, in the section its URL names:
+
+```sh
+uv run python -m eval.validate
+```
+
 Ask a question (needs `ANTHROPIC_API_KEY`):
 
 ```sh

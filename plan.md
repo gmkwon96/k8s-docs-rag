@@ -94,7 +94,10 @@ Kubernetes 공식 문서를 근거로 답하는 Q&A 서비스. 목적은 미국 
 ## 평가 설계 (핵심 자산)
 
 ### 1. 정답 세트 (golden set)
-목표 200~300문항. 각 문항 = `{question, reference_answer, gold_chunk_ids, version, category}`.
+목표 200~300문항. 각 문항 = `{question, reference_answer, evidence, version, category, answerable}`.
+
+- (변경) 정답을 `gold_chunk_ids` 대신 **근거 문장(evidence quote) + 섹션 URL**로 표시: 청킹을 바꿔도(E1) 라벨이 유효. 검색된 청크가 근거 문장을 포함하면 relevant
+- `eval/golden.py`(스키마), `eval/validate.py`: 근거 문장이 해당 버전 문서의 해당 섹션에 실제로 있는지, dev/test 간 중복 질문(누수), 카테고리 비율을 검사. 현재 청킹에서 근거 문장이 청크 경계에 걸리면 경고
 
 | 카테고리 | 비율 | 예시 형태 |
 |---|---|---|
