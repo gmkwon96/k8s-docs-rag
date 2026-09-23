@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     # Hard cap on cumulative billed Voyage tokens, tracked in data/usage/voyage.jsonl.
     # The account's free allowance is 200M; stay far below it.
     voyage_token_budget: int = 20_000_000
+    anthropic_api_key: str | None = None
+    # Hard cap on cumulative Claude API spend, tracked in data/usage/anthropic.jsonl.
+    anthropic_budget_usd: float = 5.0
 
 
 def get_settings() -> Settings:

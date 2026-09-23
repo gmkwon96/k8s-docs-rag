@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Kubernetes docs Q&A with citations, version awareness, and an eval pipeline"
 requires-python = ">=3.14,<3.15"
 dependencies = [
+    "anthropic>=1.8.0",
     "pgvector>=0.5.0",
     "psycopg[binary]>=3.3.6",
     "pydantic-settings>=2.15.0",

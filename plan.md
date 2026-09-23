@@ -83,6 +83,14 @@ Kubernetes 공식 문서를 근거로 답하는 Q&A 서비스. 목적은 미국 
       → 로그: 질문, 검색 결과 id, 점수, 지연 시간, 토큰 사용량
 ```
 
+### 최소 RAG (구현, 마일스톤 2)
+- `rag/query.py` 버전 파악(질문의 `1.xx`, 없으면 최신, 색인에 없으면 최신으로 답하고 알림) → `rag/retrieve.py` 벡터 검색(버전 필터, 해당 버전 URL) → `rag/generate.py` Sonnet 5(effort medium, max_tokens 2000), 청크마다 plain-text document + citations, URL·버전·feature state는 `context`
+- 근거 부족 시 고정 문구 "I couldn't find this in the Kubernetes documentation."로 시작 → `found=False` (refusal accuracy 측정용)
+- 인용은 URL 단위로 번호 부여, 질의 로그 `data/logs/queries.jsonl`
+- 비용 상한: `rag/billing.py`가 요청 전 최악 비용(count_tokens 입력 + max_tokens 출력)을 $5 상한과 비교, SDK 자동 재시도 끔, 응답 유실 시 최악 비용으로 기록
+- 검증 질문 10개: 질문당 $0.01~0.02, 2~8초. 버전별 feature gate 답변(1.35 alpha/disabled, 1.37 beta/enabled), 범위 밖 질문 거절, 존재하지 않는 필드 지적 확인
+- 알려진 한계: 여러 버전 비교 질문은 첫 버전만 사용(E6), 인용된 코드 조각이 코드 블록 형식을 잃을 수 있음
+
 ## 평가 설계 (핵심 자산)
 
 ### 1. 정답 세트 (golden set)
