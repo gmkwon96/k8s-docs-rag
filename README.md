@@ -21,9 +21,12 @@ uv run python -m ingest.clean        # Hugo shortcodes -> markdown, data/clean/v
 uv run python -m ingest.chunk        # heading-based chunks, data/chunks/v<version>/
 uv run python -m ingest.dedupe       # one entry per unique text, data/index/plain/
 uv run python -m ingest.load         # into Postgres as index "heading-plain"
+uv run python -m ingest.embed        # voyage-4 vectors + HNSW index (needs VOYAGE_API_KEY)
 ```
 
 `ingest.fetch --update --versions 1.35 1.36 1.37` re-pins each version to its branch tip: `release-1.xx` if that branch exists, else `main` (which documents the current release).
+
+Voyage calls are metered in `data/usage/voyage.jsonl`; any request that could push the total past `VOYAGE_TOKEN_BUDGET` (default 20M, the free allowance is 200M) is refused before it is sent. Vectors are cached in `data/embeddings/`, so rebuilding the database costs nothing.
 
 ## License
 

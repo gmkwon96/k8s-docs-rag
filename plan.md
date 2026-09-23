@@ -64,6 +64,12 @@ Kubernetes 공식 문서를 근거로 답하는 Q&A 서비스. 목적은 미국 
 - 모델마다 차원이 달라 HNSW는 모델별 부분 인덱스(`(embedding::vector(1024))`, `WHERE model = ...`)
 - 재적재는 동기화 방식: 바뀌지 않은 텍스트는 id 유지 → 임베딩 보존
 
+### 임베딩 (구현, `ingest/embed.py`, `rag/embedders.py`)
+- 기준 모델: `voyage-4`, 1024차원, float. 고유 텍스트 14,025개 → 3,288,371 토큰 과금(무료 한도 2억 안), 60초
+- 과금 안전장치: 모든 호출을 `data/usage/voyage.jsonl`에 기록, 누적 `VOYAGE_TOKEN_BUDGET`(2,000만) 초과가 예상되면 요청 전 거부. Batch API는 무료 토큰 대상이 아니므로 사용하지 않음
+- 벡터 캐시 `data/embeddings/<model>.jsonl`(텍스트 hash 키): DB를 다시 만들어도 재과금 없음
+- 검색 시 버전 필터와 함께 쓰려면 `SET hnsw.iterative_scan = relaxed_order` (pgvector 0.8)
+
 ## 전체 흐름
 ```
 [질문] → 버전 파악 (질문에 명시된 버전 추출, 없으면 최신 버전 기본값)
