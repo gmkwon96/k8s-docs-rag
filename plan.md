@@ -31,7 +31,7 @@ Kubernetes 공식 문서를 근거로 답하는 Q&A 서비스. 목적은 미국 
 ## 데이터
 - 출처: `github.com/kubernetes/website` 저장소의 `content/en/docs/` (Hugo 마크다운)
 - 라이선스: 문서는 CC BY 4.0 (착수 시 재확인). UI와 README에 출처 표기, 답변의 인용 링크는 kubernetes.io 원문으로 연결
-- 버전: 최신 minor 버전 3개의 `release-1.xx` 브랜치 (2026-09 기준 `release-1.34`, `release-1.35`, `release-1.36`)
+- 버전: 최신 minor 버전 3개 (2026-09 기준 1.35, 1.36, 1.37). 현재 버전 문서는 `main`에 있고 `release-1.xx`는 다음 버전 출시 후에 만들어지므로 1.35/1.36은 `release-1.xx`, 1.37은 `main`. 수집 커밋은 `ingest/sources.lock.json`에 고정
 - 전처리에서 풀어야 할 문제:
   - Hugo shortcode 정리: `{{< glossary_tooltip >}}`, `{{< note >}}`, `{{< tabs >}}` 등을 텍스트로 변환
   - **`{{< feature-state for_k8s_version="v1.xx" state="beta" >}}`** → 기능별 버전·안정성 메타데이터로 추출 (버전 질문 처리의 핵심 자산)
@@ -39,7 +39,7 @@ Kubernetes 공식 문서를 근거로 답하는 Q&A 서비스. 목적은 미국 
   - 페이지 front matter의 제목과 URL 경로로 인용 링크 생성
 
 ### 버전 간 중복 제거
-대부분의 페이지는 버전 간 내용이 동일하다. 조각마다 content hash를 만들어 **한 번만 저장**하고, 해당 조각이 유효한 버전 목록(`versions: ["1.31","1.32","1.33"]`)을 메타데이터로 붙인다.
+대부분의 페이지는 버전 간 내용이 동일하다. 조각마다 content hash를 만들어 **한 번만 저장**하고, 해당 조각이 유효한 버전 목록(`versions: ["1.35","1.36","1.37"]`)을 메타데이터로 붙인다.
 → 인덱스 크기와 임베딩 비용 감소. 버전 필터링은 메타데이터 조건으로 처리. (면접 이야깃거리)
 
 ## 전체 흐름

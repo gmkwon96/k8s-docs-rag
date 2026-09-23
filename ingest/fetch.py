@@ -1,8 +1,13 @@
 """Fetch Kubernetes docs from kubernetes/website release branches.
 
-Each version is a shallow, blobless, sparse checkout under data/raw/release-<version>/
-containing only the paths in SPARSE_PATHS. The exact commit per version is pinned in
-ingest/sources.lock.json so every run (and the golden set built on it) sees the same docs.
+Each version is a shallow, blobless, sparse checkout under data/raw/v<version>/ containing
+only the paths in SPARSE_PATHS (plus top-level files such as hugo.toml). The exact commit per
+version is pinned in ingest/sources.lock.json so every run (and the golden set built on it)
+sees the same docs.
+
+Branch layout: the current release is documented on `main`; `release-1.xx` is cut only once
+the next minor ships. So a version maps to `release-<version>` if it exists, else `main`, and
+hugo.toml's `version` param is checked to catch a wrong mapping.
 
 Usage:
     uv run python -m ingest.fetch             # check out the commits pinned in the lock file
@@ -13,14 +18,16 @@ import argparse
 import json
 import subprocess
 import sys
+import tomllib
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
 REPO_URL = "https://github.com/kubernetes/website.git"
-DEFAULT_VERSIONS = ["1.34", "1.35", "1.36"]
+DEFAULT_VERSIONS = ["1.35", "1.36", "1.37"]
 DOCS_PATH = "content/en/docs"
 EXAMPLES_PATH = "content/en/examples"  # pulled into pages by the code_sample shortcode
-SPARSE_PATHS = [DOCS_PATH, EXAMPLES_PATH]
+INCLUDES_PATH = "content/en/includes"  # pulled into pages by the include shortcode
+SPARSE_PATHS = [DOCS_PATH, EXAMPLES_PATH, INCLUDES_PATH]
 
 ROOT = Path(__file__).resolve().parent.parent
 LOCK_PATH = ROOT / "ingest" / "sources.lock.json"
@@ -39,11 +46,17 @@ def git(*args: str, cwd: Path | None = None) -> str:
     return result.stdout.strip()
 
 
-def resolve_branch_tip(repo: str, branch: str) -> str:
-    out = git("ls-remote", repo, f"refs/heads/{branch}")
-    if not out:
-        raise SystemExit(f"branch not found in {repo}: {branch}")
-    return out.split()[0]
+def resolve_source(repo: str, version: str) -> tuple[str, str]:
+    """Return (branch, tip commit) documenting version: release-<version> if cut, else main."""
+    release = f"release-{version}"
+    out = git("ls-remote", repo, f"refs/heads/{release}", "refs/heads/main")
+    tips = {
+        ref.removeprefix("refs/heads/"): sha for sha, ref in (ln.split() for ln in out.splitlines())
+    }
+    branch = release if release in tips else "main"
+    if branch not in tips:
+        raise SystemExit(f"neither {release} nor main found in {repo}")
+    return branch, tips[branch]
 
 
 def checkout(repo: str, commit: str, dest: Path) -> bool:
@@ -57,11 +70,29 @@ def checkout(repo: str, commit: str, dest: Path) -> bool:
         git("config", "remote.origin.partialclonefilter", "blob:none", cwd=dest)
         git("sparse-checkout", "set", *SPARSE_PATHS, cwd=dest)
     elif head_commit(dest) == commit:
-        return False
+        return ensure_sparse_paths(dest)
+    else:
+        ensure_sparse_paths(dest)
 
     git("fetch", "-q", "--depth", "1", "--filter=blob:none", "origin", commit, cwd=dest)
     git("-c", "advice.detachedHead=false", "checkout", "-q", "--detach", commit, cwd=dest)
     return True
+
+
+def ensure_sparse_paths(dest: Path) -> bool:
+    """Apply SPARSE_PATHS to an existing checkout if they changed. Returns True if applied."""
+    if git("sparse-checkout", "list", cwd=dest).splitlines() == SPARSE_PATHS:
+        return False
+    git("sparse-checkout", "set", *SPARSE_PATHS, cwd=dest)
+    return True
+
+
+def check_hugo_version(dest: Path, version: str) -> None:
+    params = tomllib.loads((dest / "hugo.toml").read_text())["params"]
+    if params["version"] != f"v{version}":
+        raise SystemExit(
+            f"{dest}: hugo.toml says {params['version']}, expected v{version}; wrong branch?"
+        )
 
 
 def head_commit(dest: Path) -> str | None:
@@ -75,6 +106,7 @@ def count_files(dest: Path) -> dict[str, int]:
     return {
         "docs_md": sum(1 for _ in (dest / DOCS_PATH).rglob("*.md")),
         "examples": sum(1 for p in (dest / EXAMPLES_PATH).rglob("*") if p.is_file()),
+        "includes": sum(1 for p in (dest / INCLUDES_PATH).rglob("*") if p.is_file()),
     }
 
 
@@ -109,21 +141,23 @@ def main(argv: list[str] | None = None) -> None:
         versions = args.versions or (list(lock["sources"]) if lock else DEFAULT_VERSIONS)
         sources = {}
         for v in versions:
-            branch = f"release-{v}"
-            sources[v] = Source(branch, resolve_branch_tip(repo, branch), commit_date="")
+            branch, commit = resolve_source(repo, v)
+            sources[v] = Source(branch, commit, commit_date="")
     else:
         sources = lock["sources"]
 
     for v, src in sources.items():
-        dest = args.data_dir / src.branch
+        dest = args.data_dir / f"v{v}"
         changed = checkout(repo, src.commit, dest)
+        check_hugo_version(dest, v)
         if not src.commit_date:
             src.commit_date = git("show", "-s", "--format=%cI", src.commit, cwd=dest)
         counts = count_files(dest)
         status = "fetched" if changed else "up to date"
         print(
-            f"{v}: {src.commit[:12]} ({src.commit_date}) {status}, "
-            f"{counts['docs_md']} docs .md, {counts['examples']} example files"
+            f"{v}: {src.branch}@{src.commit[:12]} ({src.commit_date}) {status}, "
+            f"{counts['docs_md']} docs .md, {counts['examples']} examples, "
+            f"{counts['includes']} includes"
         )
 
     if args.update:

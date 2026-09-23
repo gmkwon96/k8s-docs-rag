@@ -19,7 +19,7 @@ uv run pytest
 uv run python -m ingest.fetch        # docs at the commits pinned in ingest/sources.lock.json
 ```
 
-`ingest.fetch --update` re-pins each `release-1.xx` branch to its current tip.
+`ingest.fetch --update --versions 1.35 1.36 1.37` re-pins each version to its branch tip: `release-1.xx` if that branch exists, else `main` (which documents the current release).
 
 ## License
 
