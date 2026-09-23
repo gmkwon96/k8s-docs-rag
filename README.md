@@ -19,6 +19,7 @@ uv run pytest
 uv run python -m ingest.fetch        # docs at the commits pinned in ingest/sources.lock.json
 uv run python -m ingest.clean        # Hugo shortcodes -> markdown, data/clean/v<version>/
 uv run python -m ingest.chunk        # heading-based chunks, data/chunks/v<version>/
+uv run python -m ingest.dedupe       # one entry per unique text, data/index/plain/
 ```
 
 `ingest.fetch --update --versions 1.35 1.36 1.37` re-pins each version to its branch tip: `release-1.xx` if that branch exists, else `main` (which documents the current release).
