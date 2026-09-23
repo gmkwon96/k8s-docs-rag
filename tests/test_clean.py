@@ -25,11 +25,11 @@ other = "What's next"
 [prerequisites_heading]
 other = "Before you begin"
 [feature_state]
-other = "FEATURE STATE:"
+other = "Feature state:"
 [feature_gate_enabled]
-other = "(enabled by default)"
+other = "enabled by default"
 [feature_gate_disabled]
-other = "(disabled by default)"
+other = "disabled by default"
 [version_check_mustbeorlater]
 other = "Your Kubernetes server must be at or later than version "
 [version_check_tocheck]
@@ -153,8 +153,8 @@ def test_glossary_tooltip_uses_text_or_term_title_case_insensitively(cleaned):
 
 def test_feature_state_from_gate_and_explicit(cleaned):
     r = pods(cleaned)
-    assert "FEATURE STATE: `Kubernetes v1.32 [beta]` (enabled by default)" in r["text"]
-    assert "FEATURE STATE: `Kubernetes v1.24 [stable]`" in r["text"]
+    assert "Feature state: `Kubernetes v1.32 [beta]` enabled by default" in r["text"]
+    assert "Feature state: `Kubernetes v1.24 [stable]`" in r["text"]
     assert r["feature_states"] == [
         {"feature_gate": "MyGate", "state": "beta", "since": "1.32", "default_enabled": True},
         {"feature_gate": None, "state": "stable", "since": "1.24"},
