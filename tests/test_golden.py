@@ -154,3 +154,12 @@ def test_load_reports_line_numbers(tmp_path):
     path.write_text(json.dumps(item()) + "\n" + json.dumps(item(category="nope")) + "\n")
     with pytest.raises(ValueError, match="dev.jsonl:2"):
         load(path)
+
+
+def test_alternatives_are_validated_like_evidence(tmp_path, docs):
+    good_alt = {"url": "/docs/pods/#other", "quote": "## Other More text."}
+    ok = item(evidence=[{**item()["evidence"][0], "alternatives": [good_alt]}])
+    assert validate(write(tmp_path, dev=[ok]), docs)["errors"] == []
+    bad_alt = {"url": "/docs/pods/#other", "quote": "not really in the page"}
+    bad = item(evidence=[{**item()["evidence"][0], "alternatives": [bad_alt]}])
+    assert any("quote not found" in e for e in validate(write(tmp_path, dev=[bad]), docs)["errors"])

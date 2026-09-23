@@ -1,8 +1,9 @@
 """Golden set: questions with reference answers and chunking-independent evidence.
 
-An item's evidence is a verbatim quote from the cleaned docs of its version plus the URL
-(path and anchor) of the section it comes from. A retrieved chunk counts as relevant when
-it contains one of the item's quotes, so the labels survive any change of chunking
+An item's evidence is a list of facts, each a verbatim quote from the cleaned docs of its
+version plus the URL (path and anchor) of the section it comes from, optionally with
+alternative passages that state the same fact elsewhere. A retrieved chunk covers a fact
+when it contains one of the fact's quotes, so the labels survive any change of chunking
 (experiment E1) and can be re-validated whenever the docs are re-fetched.
 
 Files: eval/dataset/dev.jsonl and eval/dataset/test.jsonl, one item per line. Tune on dev
@@ -33,11 +34,24 @@ CATEGORY_TARGETS: dict[str, float] = {
 Origin = Literal["community-paraphrased", "synthesized", "manual"]
 
 
-class Evidence(BaseModel):
+class Passage(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     url: str = Field(pattern=r"^/docs/")  # version-independent path, with #anchor if any
     quote: str = Field(min_length=12)  # verbatim from data/clean/v<version>/pages.jsonl
+
+
+class Evidence(Passage):
+    """One fact the answer needs. Other passages stating the same fact are alternatives:
+    finding any of them covers the fact. Each fact of a multi-hop item must be covered."""
+
+    alternatives: list[Passage] = Field(default_factory=list)
+
+    def passages(self) -> list[Passage]:
+        return [Passage(url=self.url, quote=self.quote), *self.alternatives]
+
+    def quotes(self) -> list[str]:
+        return [p.quote for p in self.passages()]
 
 
 class Item(BaseModel):

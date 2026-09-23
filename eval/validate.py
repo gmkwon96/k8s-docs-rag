@@ -75,7 +75,7 @@ class Docs:
 
 def check_evidence(item: Item, docs: Docs) -> tuple[list[str], list[str]]:
     errors, warnings = [], []
-    for ev in item.evidence:
+    for ev in (p for e in item.evidence for p in e.passages()):
         path, anchor = split_url(ev.url)
         candidates = docs.records(item.version).get(path, [])
         if not candidates:

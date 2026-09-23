@@ -97,6 +97,7 @@ Kubernetes 공식 문서를 근거로 답하는 Q&A 서비스. 목적은 미국 
 목표 200~300문항. 각 문항 = `{question, reference_answer, evidence, version, category, answerable}`.
 
 - (변경) 정답을 `gold_chunk_ids` 대신 **근거 문장(evidence quote) + 섹션 URL**로 표시: 청킹을 바꿔도(E1) 라벨이 유효. 검색된 청크가 근거 문장을 포함하면 relevant
+- 근거마다 **대체 근거(alternatives)**: 같은 사실을 다른 페이지가 말하면 그중 하나만 찾아도 충족. 검색이 놓친 문항의 상위 결과를 사람이 확인해 정당한 대체 근거를 추가(IR의 pooling 방식). 실험이 새로 찾은 대체 근거도 같은 방식으로 추가해야 설정 간 비교가 공정함
 - `eval/golden.py`(스키마), `eval/validate.py`: 근거 문장이 해당 버전 문서의 해당 섹션에 실제로 있는지, dev/test 간 중복 질문(누수), 카테고리 비율을 검사. 현재 청킹에서 근거 문장이 청크 경계에 걸리면 경고
 
 | 카테고리 | 비율 | 예시 형태 |
@@ -114,6 +115,8 @@ Kubernetes 공식 문서를 근거로 답하는 Q&A 서비스. 목적은 미국 
 - **dev / test 분리**: dev(60%)로만 튜닝하고, test(40%)는 마일스톤마다 한 번만 측정. test 세트에 과적합되지 않도록 README에 이 규칙을 명시
 
 ### 2. 지표
+- (구현, `eval/metrics_retrieval.py`, `eval/run_retrieval.py`) 검색 지표는 LLM 없이 계산, 질문 임베딩은 캐시(재실행 비용 0). 결과: `eval/results/retrieval/<split>-<name>.{jsonl,summary.json}`
+- **baseline (dev 49문항, voyage-4, heading-plain, k=20)**: Recall@5 0.765, Recall@10 0.929, Hit@5 0.857, MRR 0.716, nDCG@10 0.762. 약점: multihop Recall@5 0.389(두 번째 사실을 못 찾음), false premise(잘못된 전제가 검색을 엉뚱한 곳으로 유도)
 | 단계 | 지표 | 측정 방법 |
 |---|---|---|
 | 검색 | Recall@k, MRR, nDCG@10 | gold_chunk_ids 대비, 코드로 계산 (LLM 불필요) |

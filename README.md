@@ -28,6 +28,7 @@ Golden set (`eval/dataset/{dev,test}.jsonl`) checks: schema, dev/test leakage, a
 
 ```sh
 uv run python -m eval.validate
+uv run python -m eval.run_retrieval        # retrieval metrics on dev, no LLM calls
 ```
 
 Ask a question (needs `ANTHROPIC_API_KEY`):
