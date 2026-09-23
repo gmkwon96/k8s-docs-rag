@@ -12,9 +12,9 @@ Kubernetes 공식 문서를 근거로 답하는 Q&A 서비스. 목적은 미국 
 별도 repo 권장 (예: `k8s-docs-rag`). README, 실험 리포트는 영어로 작성.
 
 ## 기술 스택
-- **언어**: Python 3.12, `uv` (AI 기업 면접 기준 표준)
+- **언어**: Python 3.14, `uv` (AI 기업 면접 기준 표준)
 - **API 서버**: FastAPI, SSE 스트리밍 응답
-- **DB**: PostgreSQL + `pgvector` (벡터 검색) + Postgres full-text search (키워드 검색). 검색 인프라를 DB 하나로 통일한 이유를 README에 설명
+- **DB**: PostgreSQL 18 + `pgvector` (로컬은 Homebrew) (벡터 검색) + Postgres full-text search (키워드 검색). 검색 인프라를 DB 하나로 통일한 이유를 README에 설명
 - **LLM**: Anthropic Python SDK (`anthropic`)
   - 답변 생성: `claude-opus-5` (env로 변경 가능, 실험에서 `claude-sonnet-5`와 effort 수준별 비교)
   - LLM 채점(judge): `claude-opus-5`, 모델·프롬프트 버전 고정 (채점 기준이 바뀌면 점수 비교가 무의미해짐)
@@ -31,7 +31,7 @@ Kubernetes 공식 문서를 근거로 답하는 Q&A 서비스. 목적은 미국 
 ## 데이터
 - 출처: `github.com/kubernetes/website` 저장소의 `content/en/docs/` (Hugo 마크다운)
 - 라이선스: 문서는 CC BY 4.0 (착수 시 재확인). UI와 README에 출처 표기, 답변의 인용 링크는 kubernetes.io 원문으로 연결
-- 버전: 최신 minor 버전 3개의 `release-1.xx` 브랜치
+- 버전: 최신 minor 버전 3개의 `release-1.xx` 브랜치 (2026-09 기준 `release-1.34`, `release-1.35`, `release-1.36`)
 - 전처리에서 풀어야 할 문제:
   - Hugo shortcode 정리: `{{< glossary_tooltip >}}`, `{{< note >}}`, `{{< tabs >}}` 등을 텍스트로 변환
   - **`{{< feature-state for_k8s_version="v1.xx" state="beta" >}}`** → 기능별 버전·안정성 메타데이터로 추출 (버전 질문 처리의 핵심 자산)
