@@ -178,8 +178,12 @@ def parse_sections(title: str, text: str) -> list[Section]:
             body.append((line, code))
             continue
         level, heading, explicit = len(m[1]), m[2], m[3]
-        if level == 1 and plain_heading(heading) == plain_heading(title) and not sections:
-            continue  # records that repeat their title as an h1 (glossary, feature gates)
+        if level == 1 and not sections and not any(ln.strip() for ln, _ in body):
+            # A leading h1 is the record's own title ("# Pod", "# Feature gate: X"): keep
+            # the line, but not as a section, so the record URL's anchor (#term-pod, #X)
+            # stays.
+            body.append((line, None))
+            continue
         close_current()
         body = []
         while stack and stack[-1].level >= level:

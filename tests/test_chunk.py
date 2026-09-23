@@ -54,6 +54,7 @@ def test_sections_heading_paths_and_anchors():
 def test_h1_repeating_the_title_is_not_a_section():
     sections = parse_sections("Pod", "# Pod\n\nThe smallest object.")
     assert len(sections) == 1 and sections[0].path == ["Pod"]
+    assert [b.text for b in sections[0].blocks] == ["# Pod", "The smallest object."]
 
 
 def test_headings_inside_code_are_ignored_and_unclosed_fences_are_text():
@@ -144,6 +145,16 @@ def test_record_anchor_is_kept_for_single_section_records():
     [chunk] = chunk_record(record("# Pod\n\nThe smallest object.", title="Pod", url=url))[0]
     assert chunk["url"] == url
     assert chunk["heading_path"] == ["Pod"]
+
+
+def test_leading_h1_that_differs_from_title_keeps_record_anchor():
+    url = "https://kubernetes.io/docs/reference/command-line-tools-reference/feature-gates/#MyGate"
+    text = "# Feature gate: MyGate\n\nStage history:\n- alpha: 1.30"
+    [chunk] = chunk_record(record(text, title="MyGate", url=url))[0]
+    assert chunk["url"] == url
+    assert chunk["anchor"] == "MyGate"
+    assert chunk["heading_path"] == ["MyGate"]
+    assert chunk["text"].startswith("# Feature gate: MyGate\n\n")
 
 
 def test_chunk_fields():

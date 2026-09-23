@@ -14,12 +14,13 @@ brew services start postgresql@18
 uv sync                              # installs Python 3.14 + dependencies
 cp .env.example .env
 uv run python -m scripts.init_db     # enables pgvector
-uv run pytest
+uv run pytest                        # DB tests use a throwaway k8s_docs_rag_test database
 
 uv run python -m ingest.fetch        # docs at the commits pinned in ingest/sources.lock.json
 uv run python -m ingest.clean        # Hugo shortcodes -> markdown, data/clean/v<version>/
 uv run python -m ingest.chunk        # heading-based chunks, data/chunks/v<version>/
 uv run python -m ingest.dedupe       # one entry per unique text, data/index/plain/
+uv run python -m ingest.load         # into Postgres as index "heading-plain"
 ```
 
 `ingest.fetch --update --versions 1.35 1.36 1.37` re-pins each version to its branch tip: `release-1.xx` if that branch exists, else `main` (which documents the current release).

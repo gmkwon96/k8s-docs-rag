@@ -57,6 +57,13 @@ Kubernetes 공식 문서를 근거로 답하는 Q&A 서비스. 목적은 미국 
 - 텍스트만 공유하고 메타데이터(URL, heading_path, feature state)는 출현(occurrence)마다 보존: 같은 텍스트라도 상위 섹션의 feature state가 버전마다 다른 경우가 146건 (예: 1.35 alpha → 1.36 beta)
 - 중복 판정 기준은 임베딩할 문자열: `plain`(본문) 또는 `breadcrumb`(제목 경로 + 본문, 고유 16,804개). E1에서 비교
 
+### DB 스키마 (구현, `db/schema.sql`, `ingest/load.py`)
+- `contents`(고유 텍스트, `index_name`별), `occurrences`(버전별 URL·heading_path·feature state), `embeddings`(텍스트 × 모델)
+- `index_name`(예: `heading-plain`)으로 청킹·임베딩 텍스트 변형을 한 DB에 나란히 적재 → E1 비교
+- 버전 필터: `versions text[]` + GIN(`versions @> ARRAY['1.36']`). 키워드 검색: `tsv` 생성 컬럼 + GIN
+- 모델마다 차원이 달라 HNSW는 모델별 부분 인덱스(`(embedding::vector(1024))`, `WHERE model = ...`)
+- 재적재는 동기화 방식: 바뀌지 않은 텍스트는 id 유지 → 임베딩 보존
+
 ## 전체 흐름
 ```
 [질문] → 버전 파악 (질문에 명시된 버전 추출, 없으면 최신 버전 기본값)
