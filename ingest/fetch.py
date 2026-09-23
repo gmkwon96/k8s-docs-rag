@@ -27,7 +27,8 @@ DEFAULT_VERSIONS = ["1.35", "1.36", "1.37"]
 DOCS_PATH = "content/en/docs"
 EXAMPLES_PATH = "content/en/examples"  # pulled into pages by the code_sample shortcode
 INCLUDES_PATH = "content/en/includes"  # pulled into pages by the include shortcode
-SPARSE_PATHS = [DOCS_PATH, EXAMPLES_PATH, INCLUDES_PATH]
+I18N_PATH = "i18n/en"  # labels rendered by shortcodes (Note:, What's next, ...)
+SPARSE_PATHS = [DOCS_PATH, EXAMPLES_PATH, INCLUDES_PATH, I18N_PATH]
 
 ROOT = Path(__file__).resolve().parent.parent
 LOCK_PATH = ROOT / "ingest" / "sources.lock.json"

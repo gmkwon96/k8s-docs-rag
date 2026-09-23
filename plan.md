@@ -37,6 +37,11 @@ Kubernetes 공식 문서를 근거로 답하는 Q&A 서비스. 목적은 미국 
   - **`{{< feature-state for_k8s_version="v1.xx" state="beta" >}}`** → 기능별 버전·안정성 메타데이터로 추출 (버전 질문 처리의 핵심 자산)
   - 코드 블록과 YAML 예시는 조각 경계에서 자르지 않음
   - 페이지 front matter의 제목과 URL 경로로 인용 링크 생성
+  - (구현, `ingest/clean.py`) shortcode는 `layouts/shortcodes/` 템플릿 동작을 그대로 따라 markdown으로 변환, 라벨은 `i18n/en/en.toml`에서 읽음. 남은 shortcode 태그 0개가 통과 기준
+  - 제외: `contribute/`, `doc-contributor-tools/`, `test.md`(문서 사이트 기여 안내), headless·`render: false` 페이지(include로만 쓰임), 본문이 빈 섹션 목차
+  - 추가 레코드: feature gate마다 1건(단계 이력 + 설명, 링크는 feature-gates 페이지 `#<이름>`), 용어집 항목마다 1건(`glossary/?all=true#term-<id>`)
+  - 인용 링크: 최신 버전은 `https://kubernetes.io`, 이전 버전은 `https://v1-35.docs.kubernetes.io` 형식
+  - 주의: 1.36부터 API reference(`reference/kubernetes-api/`)가 하위 타입 정의를 페이지마다 인라인해서 코퍼스의 39%를 차지 (1.35는 19%). 청킹·중복 제거 단계에서 처리
 
 ### 버전 간 중복 제거
 대부분의 페이지는 버전 간 내용이 동일하다. 조각마다 content hash를 만들어 **한 번만 저장**하고, 해당 조각이 유효한 버전 목록(`versions: ["1.35","1.36","1.37"]`)을 메타데이터로 붙인다.
