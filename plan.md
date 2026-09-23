@@ -1,0 +1,175 @@
+# Kubernetes Docs RAG + Eval — 구현 계획
+
+## Context
+Kubernetes 공식 문서를 근거로 답하는 Q&A 서비스. 목적은 미국 테크/AI 기업 취업용 포트폴리오.
+차별점은 챗봇이 아니라 **평가(eval) 파이프라인**이다. "이 시스템은 몇 % 정확한가, 이 변경이 좋아졌나 나빠졌나"를 숫자와 신뢰구간으로 답할 수 있어야 한다.
+
+핵심 원칙:
+1. **근거 없이 답하지 않는다.** 모든 문장은 검색된 문서 조각을 인용하고, 근거가 부족하면 답변을 거절한다.
+2. **버전을 구분한다.** 같은 질문이라도 Kubernetes 버전에 따라 답이 달라질 수 있다. 버전 처리가 이 프로젝트의 핵심 기술 과제다.
+3. **모든 설정 변경은 eval로 검증한다.** 실험 결과는 표로 남기고 README에 공개한다.
+
+별도 repo 권장 (예: `k8s-docs-rag`). README, 실험 리포트는 영어로 작성.
+
+## 기술 스택
+- **언어**: Python 3.12, `uv` (AI 기업 면접 기준 표준)
+- **API 서버**: FastAPI, SSE 스트리밍 응답
+- **DB**: PostgreSQL + `pgvector` (벡터 검색) + Postgres full-text search (키워드 검색). 검색 인프라를 DB 하나로 통일한 이유를 README에 설명
+- **LLM**: Anthropic Python SDK (`anthropic`)
+  - 답변 생성: `claude-opus-5` (env로 변경 가능, 실험에서 `claude-sonnet-5`와 effort 수준별 비교)
+  - LLM 채점(judge): `claude-opus-5`, 모델·프롬프트 버전 고정 (채점 기준이 바뀌면 점수 비교가 무의미해짐)
+  - Citations 기능: 검색된 조각을 `document` 블록으로 넣고 `citations: {enabled: true}` → 응답에서 문장별 인용 위치를 받음. (주의: citations는 structured output `output_config.format`과 동시 사용 불가)
+  - Prompt caching: 고정된 system prompt 캐싱, contextual chunking 단계에서 문서 전체를 캐시 prefix로 두고 조각별 요약 생성
+  - Message Batches API: 전체 eval 실행과 대량 전처리는 배치로 (비동기, 비용 50% 절감)
+  - `stop_reason == "refusal"` 처리 + 서버 측 fallback 설정
+- **임베딩 / reranker**: 외부 API 1종 + 오픈소스 1종을 비교 실험 대상으로 (예: Voyage AI 임베딩·rerank vs `sentence-transformers` 계열 오픈소스 모델). 착수 시점의 최신 모델을 확인해 선택
+- **평가**: 자체 eval 러너 (pytest 스타일), 결과는 JSONL + 집계 표. 필요하면 Ragas 지표와 교차 확인
+- **프론트엔드**: Next.js + TypeScript + Tailwind (간단한 단일 페이지 + eval 대시보드)
+- **CI**: GitHub Actions
+- **배포**: Postgres는 Neon 또는 Supabase(pgvector 지원), API는 Fly.io 또는 Render, 프론트는 Vercel
+
+## 데이터
+- 출처: `github.com/kubernetes/website` 저장소의 `content/en/docs/` (Hugo 마크다운)
+- 라이선스: 문서는 CC BY 4.0 (착수 시 재확인). UI와 README에 출처 표기, 답변의 인용 링크는 kubernetes.io 원문으로 연결
+- 버전: 최신 minor 버전 3개의 `release-1.xx` 브랜치
+- 전처리에서 풀어야 할 문제:
+  - Hugo shortcode 정리: `{{< glossary_tooltip >}}`, `{{< note >}}`, `{{< tabs >}}` 등을 텍스트로 변환
+  - **`{{< feature-state for_k8s_version="v1.xx" state="beta" >}}`** → 기능별 버전·안정성 메타데이터로 추출 (버전 질문 처리의 핵심 자산)
+  - 코드 블록과 YAML 예시는 조각 경계에서 자르지 않음
+  - 페이지 front matter의 제목과 URL 경로로 인용 링크 생성
+
+### 버전 간 중복 제거
+대부분의 페이지는 버전 간 내용이 동일하다. 조각마다 content hash를 만들어 **한 번만 저장**하고, 해당 조각이 유효한 버전 목록(`versions: ["1.31","1.32","1.33"]`)을 메타데이터로 붙인다.
+→ 인덱스 크기와 임베딩 비용 감소. 버전 필터링은 메타데이터 조건으로 처리. (면접 이야깃거리)
+
+## 전체 흐름
+```
+[질문] → 버전 파악 (질문에 명시된 버전 추출, 없으면 최신 버전 기본값)
+      → 질문 재작성 (선택, 실험 대상)
+      → 하이브리드 검색: 벡터 top-k + 키워드 top-k → RRF(Reciprocal Rank Fusion)로 결합, 버전 필터 적용
+      → rerank → 상위 N개 조각
+      → Claude 생성: 조각을 document 블록으로 전달, citations 활성화
+            근거 부족 → "문서에서 찾을 수 없음" + 가장 가까운 관련 문서 링크
+            버전별 차이 발견 → 버전별로 나눠서 답변
+      → 응답: 답변 + 인용(원문 링크) + 검색된 조각 목록(디버그 패널)
+      → 로그: 질문, 검색 결과 id, 점수, 지연 시간, 토큰 사용량
+```
+
+## 평가 설계 (핵심 자산)
+
+### 1. 정답 세트 (golden set)
+목표 200~300문항. 각 문항 = `{question, reference_answer, gold_chunk_ids, version, category}`.
+
+| 카테고리 | 비율 | 예시 형태 |
+|---|---|---|
+| 단순 사실 조회 | 25% | "기본 terminationGracePeriodSeconds 값은?" |
+| How-to / 명령어 | 20% | "Deployment를 이전 리비전으로 롤백하는 kubectl 명령은?" |
+| 버전 의존 | 20% | feature-state가 버전 사이에 바뀐 기능에 대한 질문 |
+| 멀티홉 (여러 페이지 종합) | 15% | 두 개념을 연결해야 답할 수 있는 질문 |
+| 답이 없는 질문 | 15% | 특정 클라우드 서비스 가격, Helm 차트 세부사항 등 문서 범위 밖 |
+| 잘못된 전제 | 5% | 존재하지 않는 필드나 옵션을 전제로 한 질문 |
+
+만드는 방법:
+- **실제 질문 수집**: Stack Overflow `kubernetes` 태그, GitHub Issues, 커뮤니티 포럼에서 질문 문장을 가져와 정답은 직접 문서에서 작성. 합성 질문만 쓰면 실제 사용자 질문과 분포가 달라지는 문제를 방지
+- **LLM 합성 + 사람 검수**: 문서 조각에서 Claude로 질문 후보를 생성한 뒤 직접 검수해서 채택/수정/폐기
+- **dev / test 분리**: dev(60%)로만 튜닝하고, test(40%)는 마일스톤마다 한 번만 측정. test 세트에 과적합되지 않도록 README에 이 규칙을 명시
+
+### 2. 지표
+| 단계 | 지표 | 측정 방법 |
+|---|---|---|
+| 검색 | Recall@k, MRR, nDCG@10 | gold_chunk_ids 대비, 코드로 계산 (LLM 불필요) |
+| 생성 | Correctness | judge가 reference_answer와 비교, 0/1/2 루브릭 |
+| 생성 | Faithfulness | 답변 문장을 claim으로 나누고 인용된 조각이 각 claim을 뒷받침하는지 판정 |
+| 생성 | Citation precision | 인용된 조각 중 실제로 관련 있는 비율 |
+| 생성 | Refusal accuracy | 답이 없는 질문 → 거절했나 / 답이 있는 질문 → 잘못 거절하지 않았나 (둘 다 측정) |
+| 생성 | Version accuracy | 버전 의존 질문에서 올바른 버전 기준으로 답했나 |
+| 운영 | p50/p95 지연 시간, 질문당 비용 | 요청 로그에서 집계 |
+
+### 3. Judge 신뢰성 검증
+- dev 세트 50문항은 직접 채점 → judge 채점과의 일치도(Cohen's kappa) 계산해 README에 공개
+- 불일치 사례를 분석해 judge 프롬프트 개선 → 재측정
+- judge 모델·프롬프트 버전을 결과 파일에 기록
+
+### 4. 통계적 유의성
+200~300문항에서는 1~2%p 차이가 노이즈일 수 있다. 모든 비교에 **bootstrap 95% 신뢰구간**을 붙이고, 같은 문항 쌍으로 비교(paired)한다.
+→ "개선됐다"고 주장할 때 근거를 댈 수 있음. AI 기업 면접에서 특히 강한 포인트.
+
+## 실험 계획
+기준 설정(baseline)에서 한 번에 하나씩 바꿔 측정한다.
+
+| # | 실험 | 비교 대상 |
+|---|---|---|
+| E1 | 청킹 전략 | 고정 길이 512토큰 vs 마크다운 헤딩 단위 vs 헤딩 단위 + 제목 경로(breadcrumb) prefix |
+| E2 | Contextual chunking | 조각마다 "이 조각이 문서 전체에서 어떤 내용인지" 요약을 붙여 임베딩 (prompt caching으로 비용 절감) |
+| E3 | 임베딩 모델 | 외부 API vs 오픈소스 |
+| E4 | 검색 방식 | 벡터만 vs 키워드만 vs 하이브리드(RRF) |
+| E5 | Reranker | 없음 vs 있음, rerank 전 후보 수 20/50/100 |
+| E6 | 버전 처리 | 버전 필터 없음 vs 메타데이터 필터 vs 필터 + 버전별 답변 분리 |
+| E7 | 질문 재작성 | 없음 vs 질문 재작성 vs HyDE |
+| E8 | 생성 모델 / effort | `claude-opus-5` vs `claude-sonnet-5`, effort low/medium/high → 정확도 대비 비용·지연 시간 곡선 |
+
+결과는 `experiments/results.md`에 표로 누적 (지표 + 신뢰구간 + 비용 + 커밋 해시).
+
+## 디렉터리 구조
+```
+ingest/
+  fetch.py              # kubernetes/website 브랜치별 문서 수집
+  clean.py              # Hugo shortcode 정리, feature-state 메타데이터 추출
+  chunk.py              # 청킹 전략들 (전략별 함수, 설정으로 선택)
+  dedupe.py             # content hash 기반 버전 간 중복 제거
+  embed.py              # 임베딩 생성 및 DB 적재
+rag/
+  retrieve.py           # 벡터 / 키워드 / 하이브리드(RRF), 버전 필터
+  rerank.py
+  query.py              # 버전 추출, 질문 재작성
+  generate.py           # Claude 호출, citations, 거절 처리
+  pipeline.py           # 설정(yaml) → 파이프라인 조립
+  config/               # baseline.yaml, e1_heading.yaml ...
+api/
+  main.py               # FastAPI: POST /ask (SSE), GET /eval/results
+eval/
+  dataset/              # dev.jsonl, test.jsonl
+  build_dataset.py      # 합성 질문 생성 + 검수 도구 (CLI)
+  metrics_retrieval.py  # Recall@k, MRR, nDCG
+  judge.py              # correctness / faithfulness judge (Batches API)
+  run.py                # 설정 파일 하나로 eval 실행 → results/*.jsonl
+  report.py             # 집계, bootstrap CI, 실험 비교 표 생성
+  calibration/          # 사람 채점 결과, kappa 계산
+web/                    # Next.js: 질문 UI + eval 대시보드
+tests/                  # pytest (전처리, 청킹, RRF, 지표 계산 단위 테스트)
+.github/workflows/      # ci.yml, eval.yml
+```
+
+## 마일스톤
+1. **데이터 파이프라인**: 문서 수집, shortcode 정리, feature-state 추출, 헤딩 단위 청킹, 중복 제거, pgvector 적재
+   - 완료 기준: 3개 버전 인덱싱, 중복 제거율 수치 확인, 전처리 단위 테스트 통과
+2. **최소 RAG**: 벡터 검색 + Claude 생성 + citations, CLI로 질문 가능
+   - 완료 기준: 질문 10개에 인용 포함 답변 생성
+3. **eval 기반 구축** (가장 중요): 정답 세트 dev 120문항 이상, 검색 지표, judge, calibration, bootstrap CI
+   - 완료 기준: baseline 점수표 확보, judge kappa 측정
+4. **실험 E1~E8**: 하나씩 적용하고 결과 표 누적, 가장 좋은 조합을 새 기본값으로
+   - 완료 기준: 실험 표 완성, test 세트로 최종 점수 1회 측정
+5. **서비스화**: FastAPI SSE, Next.js UI (답변 + 인용 링크 + 버전 선택 + 검색 조각 디버그 패널), eval 대시보드 페이지
+6. **CI & 배포 & 문서화**
+   - PR마다: 단위 테스트 + dev 서브셋 50문항 eval, 결과를 PR 코멘트로 게시, 기준 대비 하락 시 실패
+   - 전체 eval: 수동 실행 또는 주 1회 (Batches API)
+   - 배포, rate limit, 동일 질문 응답 캐시
+   - README (영어): 아키텍처 다이어그램, 실험 결과 표, 설계 결정과 트레이드오프, 한계점
+   - 기술 블로그 글 1편: 실험 과정에서 발견한 가장 흥미로운 결과
+
+## 리스크 & 대응
+- **정답 세트 제작 시간** → 가장 큰 비용. 마일스톤 3에 충분한 시간 배정, 합성 + 검수로 속도 확보. 처음엔 120문항으로 시작해 점진 확대
+- **judge 편향** (길고 자신감 있는 답변 선호 등) → 사람 채점과의 kappa 측정, 루브릭을 구체적으로
+- **test 세트 과적합** → dev/test 분리, test는 마일스톤마다 1회만
+- **문서 업데이트로 정답이 바뀜** → 수집 시점의 커밋 해시 고정, 정답 세트에 기준 커밋 기록
+- **비용** → eval은 Batches API, 검색 지표는 LLM 없이 계산, 실험 중 생성 결과 캐싱(설정 hash + 질문 hash), 공개 데모에 rate limit
+- **공개 데모 남용** → IP별 rate limit, 입력 길이 제한, 일일 예산 상한
+
+## 면접에서 설명할 포인트
+- 왜 벡터 DB 대신 Postgres 하나로 갔나 (운영 단순성 vs 대규모 성능)
+- 버전 간 중복 제거와 버전 필터링 설계
+- 하이브리드 검색이 어떤 유형의 질문에서 효과가 있었나 (예: 필드명·명령어처럼 정확한 토큰이 중요한 질문)
+- judge를 어떻게 믿을 수 있게 만들었나 (kappa, 루브릭)
+- 개선이 노이즈가 아니라는 근거 (paired bootstrap CI)
+- 모델·effort 선택에 따른 비용/정확도/지연 시간 트레이드오프
+- 규모가 커지면 무엇을 바꿀 것인가 (전용 벡터 DB, 인덱스 샤딩, 캐시 계층, 온라인 평가)
