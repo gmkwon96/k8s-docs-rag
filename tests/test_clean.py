@@ -238,6 +238,7 @@ def test_report_is_clean(cleaned):
     _, _, report = cleaned
     assert report["warnings"] == {}
     assert report["leftover_shortcode_tags"] == 0
+    assert report["leftover_html_tags"] == 0
     assert report["records"] == {"page": 3, "glossary": 2, "feature_gate": 1}
 
 

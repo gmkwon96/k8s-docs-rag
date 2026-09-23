@@ -14,7 +14,6 @@ Usage:
 """
 
 import argparse
-import html
 import json
 import os
 import re
@@ -29,6 +28,8 @@ import yaml
 
 from ingest.fetch import DATA_DIR as RAW_DIR
 from ingest.fetch import DOCS_PATH, EXAMPLES_PATH, INCLUDES_PATH, LOCK_PATH, load_lock
+from ingest.html2md import convert as html_to_markdown
+from ingest.html2md import count_tags as count_html_tags
 from ingest.shortcodes import Node, Shortcode, parse
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -146,13 +147,6 @@ def load_i18n(path: Path) -> dict[str, str]:
     return {k: v.get("other", "") for k, v in data.items() if isinstance(v, dict)}
 
 
-def html_to_markdown(s: str) -> str:
-    s = re.sub(r'<a [^>]*href="([^"]+)"[^>]*>(.*?)</a>', r"[\2](\1)", s, flags=re.S)
-    s = re.sub(r"<code>(.*?)</code>", r"`\1`", s, flags=re.S)
-    s = re.sub(r"<[^>]+>", "", s)
-    return html.unescape(s).strip()
-
-
 def outside_fences(text: str, fn) -> str:
     """Apply fn to the parts of text that are not inside fenced code blocks."""
     out, buf, in_fence = [], [], False
@@ -173,10 +167,21 @@ def outside_fences(text: str, fn) -> str:
 
 
 def tidy(text: str) -> str:
-    text = outside_fences(text, lambda s: HTML_COMMENT_RE.sub("", s))
+    text = outside_fences(text, lambda s: html_to_markdown(HTML_COMMENT_RE.sub("", s)))
     text = re.sub(r"[ \t]+\n", "\n", text)
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip() + "\n"
+
+
+def prose(text: str) -> str:
+    """Text with fenced code blocks (and their fence lines) removed."""
+    kept, in_fence = [], False
+    for line in text.splitlines(keepends=True):
+        if FENCE_RE.match(line):
+            in_fence = not in_fence
+        elif not in_fence:
+            kept.append(line)
+    return "".join(kept)
 
 
 def url_path(rel: Path, front: dict) -> str:
@@ -434,12 +439,12 @@ def h_link(sc, page, inner):
 
 def h_figure(sc, page, inner):
     text = " ".join(t for t in (sc.get("title"), sc.get("caption") or sc.get("alt")) if t)
-    return f"\n*Figure: {html_to_markdown(text)}*\n" if text else ""
+    return f"\n*Figure: {html_to_markdown(text).strip()}*\n" if text else ""
 
 
 def h_message(key):
     def handler(sc, page, inner):
-        return callout(page.site.t("note"), html_to_markdown(page.site.t(key)))
+        return callout(page.site.t("note"), html_to_markdown(page.site.t(key)).strip())
 
     return handler
 
@@ -645,11 +650,13 @@ def clean_version(raw: Path, version: str) -> tuple[list[dict], list[FeatureGate
         )
 
     leftovers = sum(len(LEFTOVER_RE.findall(r["text"])) for r in records)
+    html_tags = sum(count_html_tags(prose(r["text"])) for r in records)
     report = {
         "version": version,
         "records": dict(Counter(r["kind"] for r in records)),
         "skipped": dict(skipped),
         "leftover_shortcode_tags": leftovers,
+        "leftover_html_tags": html_tags,
         "warnings": {k: v for k, v in sorted(site.stats.items()) if not k.startswith("shortcode ")},
         "shortcodes": {
             k.removeprefix("shortcode "): v
@@ -691,7 +698,8 @@ def main(argv: list[str] | None = None) -> None:
         warnings = sum(report["warnings"].values())
         print(
             f"{version}: {report['records']}, skipped {report['skipped']}, "
-            f"{warnings} warnings, {report['leftover_shortcode_tags']} leftover tags -> {out}"
+            f"{warnings} warnings, {report['leftover_shortcode_tags']} leftover shortcode tags, "
+            f"{report['leftover_html_tags']} leftover HTML tags -> {out}"
         )
 
 
