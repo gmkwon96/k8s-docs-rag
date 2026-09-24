@@ -1,0 +1,38 @@
+{
+  "name": "default",
+  "split": "dev",
+  "config": {
+    "model": "claude-sonnet-5",
+    "effort": "medium",
+    "max_tokens": 2000,
+    "retrieval": {
+      "method": "vector",
+      "rerank": "rerank-3",
+      "candidates": 50,
+      "k": 8
+    },
+    "embedder": "voyage-4"
+  },
+  "commit": "930db10",
+  "time": "2026-09-23T23:59:54",
+  "missing": [],
+  "n": 120,
+  "refusal": {
+    "unanswerable_refused": 0.9444,
+    "answerable_false_refusal": 0,
+    "false_premise_refused": 0
+  },
+  "citations": {
+    "answerable_with_citation": 1,
+    "citation_hit": 0.9375,
+    "citation_precision_strict": 0.5204
+  },
+  "stop_reasons": {
+    "end_turn": 120
+  },
+  "usd": 1.1689,
+  "tokens": {
+    "input": 837405,
+    "output": 66306
+  }
+}

@@ -28,3 +28,4 @@ Correctness (0/1/2, shown as 0-1) and faithfulness are scored by the `claude-hai
 | run | n | correctness | fully_correct | faithfulness | citation_hit | unanswerable_refused | false_refusal | answer $ | commit |
 |---|---|---|---|---|---|---|---|---|---|
 | dev-baseline | 120 | 0.938 [0.896, 0.971] | 0.908 [0.858, 0.958] | 0.954 [0.924, 0.979] | 0.882 [0.814, 0.941] | 1.000 [1.000, 1.000] | 0.010 [0.000, 0.031] | 1.08 | 991c8ba |
+| dev-default | 120 | 0.946 [0.912, 0.975] | 0.900 [0.842, 0.950] | 0.975 [0.962, 0.987] | 0.912 [0.853, 0.961] | 0.944 [0.833, 1.000] | 0.000 [0.000, 0.000] | 1.17 | 930db10 |
