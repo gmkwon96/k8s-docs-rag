@@ -137,3 +137,44 @@ def hybrid_search(
     )
     sparse = keyword_search(conn, question, version, k=candidates, index_name=index_name)
     return rrf([dense, sparse], k)
+
+
+@dataclass(frozen=True)
+class RetrievalConfig:
+    """How the pipeline retrieves. Defaults are the best dev setting (experiment E5)."""
+
+    method: str = "vector"  # vector | keyword | hybrid
+    rerank: str | None = "rerank-3"
+    candidates: int = 50  # hits fed to the reranker
+    k: int = 8  # chunks given to the model
+
+
+BASELINE = RetrievalConfig(rerank=None)  # milestone 2-3 setting: vector top k
+DEFAULT = RetrievalConfig()
+
+
+def retrieve(
+    conn,
+    question: str,
+    query_vector,
+    version: str,
+    config: RetrievalConfig = DEFAULT,
+    *,
+    model: str = "voyage-4",
+    dim: int = 1024,
+    reranker=None,
+) -> list[Hit]:
+    depth = config.candidates if config.rerank else config.k
+    if config.method == "vector":
+        hits = vector_search(conn, query_vector, version, k=depth, model=model, dim=dim)
+    elif config.method == "keyword":
+        hits = keyword_search(conn, question, version, k=depth)
+    else:
+        hits = hybrid_search(conn, query_vector, question, version, k=depth, model=model)
+    if config.rerank:
+        if reranker is None:
+            from rag.rerank import VoyageReranker
+
+            reranker = VoyageReranker(config.rerank)
+        hits = reranker.rerank(question, hits, config.k)
+    return hits

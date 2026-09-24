@@ -163,6 +163,7 @@ Kubernetes 공식 문서를 근거로 답하는 Q&A 서비스. 목적은 미국 
 
 ### 실험 결과 요약
 - **E4 (검색 방식)**: dev 102문항, paired bootstrap. 키워드만(Postgres `ts_rank`, OR 질의)은 모든 지표에서 유의하게 나쁨(Recall@10 −0.126). 하이브리드(RRF k=60, 후보 50+50)는 Recall@5 +0.034 [−0.010, +0.083]로 유의하지 않음, MRR −0.011. 카테고리별로 multihop Hit@5 0.889→1.000, false premise Recall@10 0.50→0.92 개선, howto는 하락. 기본값은 벡터 유지, E5에서 rerank와 결합해 재평가
+- **E5 (Reranker)**: Voyage `rerank-3`(무료 토큰 대상; rerank-2.5는 무료 토큰 없음). 벡터 후보 50 → 상위 8: Recall@5 +0.059 [+0.010, +0.113], MRR +0.131 [+0.070, +0.194], nDCG@10 +0.112 [+0.061, +0.166] 모두 유의. 후보 20/50/100 차이 미미, 하이브리드 후보는 rerank 뒤 이점 없음. 호출당 0.28초, 질의당 약 1.4만 토큰. **새 기본값: 벡터 50 + rerank-3 → 8** (`rag.retrieve.DEFAULT`). 남은 약점: false premise(Recall@5 0.33)
 
 ## 디렉터리 구조
 ```

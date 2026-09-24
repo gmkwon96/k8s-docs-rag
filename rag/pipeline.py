@@ -10,7 +10,7 @@ import psycopg
 from rag.embedders import EMBEDDERS
 from rag.generate import Answer, generate
 from rag.query import VersionChoice, choose_version
-from rag.retrieve import Hit, vector_search
+from rag.retrieve import DEFAULT, Hit, RetrievalConfig, retrieve
 
 ROOT = Path(__file__).resolve().parent.parent
 LOG_PATH = ROOT / "data" / "logs" / "queries.jsonl"
@@ -34,13 +34,15 @@ def ask(
     k: int = 8,
     embedder=None,
     log_path: Path | None = LOG_PATH,
+    config: RetrievalConfig | None = None,
 ) -> Result:
     embedder = embedder or EMBEDDERS["voyage-4"]
     choice = choose_version(question, version)
     t0 = time.monotonic()
     [query_vector], _ = embedder.embed([question], "query")
     t1 = time.monotonic()
-    hits = vector_search(conn, query_vector, choice.version, k=k, model=embedder.name)
+    config = config or RetrievalConfig(**{**DEFAULT.__dict__, "k": k})
+    hits = retrieve(conn, question, query_vector, choice.version, config, model=embedder.name)
     t2 = time.monotonic()
     answer = generate(claude, question, choice.version, hits, choice.note)
     t3 = time.monotonic()

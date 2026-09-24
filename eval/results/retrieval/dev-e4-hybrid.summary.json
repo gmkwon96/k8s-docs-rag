@@ -3,27 +3,29 @@
   "split": "dev",
   "config": {
     "method": "hybrid",
+    "rerank": null,
+    "candidates": null,
     "model": "voyage-4",
     "index_name": "heading-plain",
     "k": 20
   },
-  "commit": "6b4f709",
-  "time": "2026-09-23T21:19:19",
+  "commit": "f84f784",
+  "time": "2026-09-23T23:14:16",
   "skipped_without_evidence": 18,
   "n": 102,
   "overall": {
-    "recall@1": 0.4641,
-    "hit@1": 0.549,
-    "recall@3": 0.7353,
-    "hit@3": 0.8235,
+    "recall@1": 0.4739,
+    "hit@1": 0.5588,
+    "recall@3": 0.7451,
+    "hit@3": 0.8333,
     "recall@5": 0.8415,
     "hit@5": 0.9216,
     "recall@10": 0.8905,
     "hit@10": 0.951,
     "recall@20": 0.9395,
     "hit@20": 0.9706,
-    "mrr": 0.7003,
-    "ndcg@10": 0.7538
+    "mrr": 0.7077,
+    "ndcg@10": 0.7594
   },
   "by_category": {
     "fact": {
@@ -47,8 +49,8 @@
       "recall@5": 0.8542,
       "recall@10": 0.8542,
       "hit@5": 0.875,
-      "mrr": 0.6503,
-      "ndcg@10": 0.7486
+      "mrr": 0.6816,
+      "ndcg@10": 0.7723
     },
     "multihop": {
       "n": 18,

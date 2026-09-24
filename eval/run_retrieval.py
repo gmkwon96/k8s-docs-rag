@@ -24,6 +24,7 @@ from eval.golden import load_split
 from eval.metrics_retrieval import score
 from ingest.embed import CACHE_DIR, Cache
 from rag.embedders import EMBEDDERS
+from rag.rerank import FREE_TIER_MODELS, VoyageReranker
 from rag.retrieve import hybrid_search, keyword_search, vector_search
 from rag.settings import get_settings
 
@@ -81,14 +82,27 @@ def search(conn, method: str, item, vector, *, k: int, embedder, index_name: str
 
 
 def run(
-    conn, embedder, items, *, k: int, index_name: str, cache: Cache, method: str = "vector"
+    conn,
+    embedder,
+    items,
+    *,
+    k: int,
+    index_name: str,
+    cache: Cache,
+    method: str = "vector",
+    reranker: VoyageReranker | None = None,
+    candidates: int = 50,
 ) -> list[dict]:
+    """With a reranker, fetch `candidates` hits and keep the reranker's top k."""
     items = [i for i in items if i.evidence]
     vectors = query_vectors(embedder, [i.question for i in items], cache)
     rows = []
     for item, vector in zip(items, vectors, strict=True):
         t0 = time.monotonic()
-        hits = search(conn, method, item, vector, k=k, embedder=embedder, index_name=index_name)
+        depth = candidates if reranker else k
+        hits = search(conn, method, item, vector, k=depth, embedder=embedder, index_name=index_name)
+        if reranker:
+            hits = reranker.rerank(item.question, hits, k)
         latency = time.monotonic() - t0
         facts = [[(p.url, p.quote) for p in e.passages()] for e in item.evidence]
         metrics = score([(h.url, h.text) for h in hits], facts)
@@ -113,6 +127,8 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--index-name", default="heading-plain")
     parser.add_argument("--k", type=int, default=20)
     parser.add_argument("--method", choices=METHODS, default="vector")
+    parser.add_argument("--rerank", choices=FREE_TIER_MODELS, help="rerank candidates")
+    parser.add_argument("--candidates", type=int, default=50, help="hits fed to the reranker")
     parser.add_argument("--out-dir", type=Path, default=RESULTS_DIR)
     args = parser.parse_args(argv)
     if args.split == "test":
@@ -130,12 +146,16 @@ def main(argv: list[str] | None = None) -> None:
             index_name=args.index_name,
             cache=cache,
             method=args.method,
+            reranker=VoyageReranker(args.rerank) if args.rerank else None,
+            candidates=args.candidates,
         )
     summary = {
         "name": args.name,
         "split": args.split,
         "config": {
             "method": args.method,
+            "rerank": args.rerank,
+            "candidates": args.candidates if args.rerank else None,
             "model": args.model,
             "index_name": args.index_name,
             "k": args.k,

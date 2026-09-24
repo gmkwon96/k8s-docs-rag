@@ -53,3 +53,22 @@ def test_rrf_rewards_agreement():
     fused = rrf([[h(1), h(2), h(3)], [h(3), h(4), h(1)]], k=4)
     assert [x.content_id for x in fused][:2] == [1, 3]  # in both lists
     assert fused[0].score == pytest.approx(1 / 61 + 1 / 63)
+
+
+def test_retrieve_reranks_candidates_down_to_k(conn):  # noqa: F811
+    from rag.retrieve import RetrievalConfig, retrieve
+
+    load(conn, "heading-plain", [content(key, f"text {key}", ["1.37"]) for key in "abc"])
+    ids = dict(conn.execute("SELECT key, id FROM contents").fetchall())
+    store(conn, "fake-2d", [(ids["a"], [1.0, 0.0]), (ids["b"], [0.9, 0.1]), (ids["c"], [0.0, 1.0])])
+
+    class Reverse:
+        def rerank(self, question, hits, k):
+            assert len(hits) == 3  # all candidates, not just k
+            return list(reversed(hits))[:k]
+
+    config = RetrievalConfig(rerank="rerank-3", candidates=3, k=2)
+    hits = retrieve(
+        conn, "q", [1.0, 0.0], "1.37", config, model="fake-2d", dim=2, reranker=Reverse()
+    )
+    assert [h.text for h in hits] == ["text c", "text b"]

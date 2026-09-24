@@ -34,19 +34,19 @@ from ingest.embed import CACHE_DIR, Cache
 from rag import generate
 from rag.billing import cost, default_ledger
 from rag.embedders import EMBEDDERS
-from rag.retrieve import Hit, vector_search
+from rag.retrieve import BASELINE, DEFAULT, Hit, RetrievalConfig, retrieve
 from rag.settings import get_settings
 
 ROOT = Path(__file__).resolve().parent.parent
 RESULTS_DIR = ROOT / "eval" / "results" / "generation"
 
 
-def build(conn, embedder, items, k: int, cache: Cache):
+def build(conn, embedder, items, config: RetrievalConfig, cache: Cache):
     """-> [(item, hits, request params)] in item order."""
     vectors = query_vectors(embedder, [i.question for i in items], cache)
     out = []
     for item, vector in zip(items, vectors, strict=True):
-        hits = vector_search(conn, vector, item.version, k=k, model=embedder.name)
+        hits = retrieve(conn, item.question, vector, item.version, config, model=embedder.name)
         out.append((item, hits, generate.request(item.question, item.version, hits)))
     return out
 
@@ -116,7 +116,12 @@ def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--split", default="dev", choices=["dev", "test"])
     parser.add_argument("--name", default="baseline")
-    parser.add_argument("--k", type=int, default=8)
+    parser.add_argument(
+        "--retrieval",
+        choices=["default", "baseline"],
+        default="default",
+        help="default: vector + rerank-3 (E5); baseline: vector top 8 (milestones 2-3)",
+    )
     parser.add_argument("--poll", type=float, default=30, help="seconds between status checks")
     parser.add_argument("--out-dir", type=Path, default=RESULTS_DIR)
     parser.add_argument(
@@ -139,7 +144,8 @@ def main(argv: list[str] | None = None) -> None:
     raw_path = args.out_dir / f"{stem}.raw.jsonl"
 
     with psycopg.connect(get_settings().database_url) as conn:
-        built = build(conn, embedder, items, args.k, Cache(CACHE_DIR / "voyage-4-query.jsonl"))
+        config = DEFAULT if args.retrieval == "default" else BASELINE
+        built = build(conn, embedder, items, config, Cache(CACHE_DIR / "voyage-4-query.jsonl"))
     requests = [(item.id, params) for item, _, params in built]
     submit(client, ledger, requests, state_path, max_usd=args.max_usd)
     messages = collect(client, ledger, state_path, raw_path, args.poll)
@@ -154,7 +160,7 @@ def main(argv: list[str] | None = None) -> None:
             "model": generate.MODEL,
             "effort": generate.EFFORT,
             "max_tokens": generate.MAX_TOKENS,
-            "k": args.k,
+            "retrieval": config.__dict__,
             "embedder": embedder.name,
         },
         "commit": git_commit(),

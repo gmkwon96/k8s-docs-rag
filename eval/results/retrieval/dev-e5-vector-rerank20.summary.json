@@ -1,0 +1,72 @@
+{
+  "name": "e5-vector-rerank20",
+  "split": "dev",
+  "config": {
+    "method": "vector",
+    "rerank": "rerank-3",
+    "candidates": 20,
+    "model": "voyage-4",
+    "index_name": "heading-plain",
+    "k": 20
+  },
+  "commit": "f84f784",
+  "time": "2026-09-23T23:14:17",
+  "skipped_without_evidence": 18,
+  "n": 102,
+  "overall": {
+    "recall@1": 0.665,
+    "hit@1": 0.7745,
+    "recall@3": 0.817,
+    "hit@3": 0.8824,
+    "recall@5": 0.8513,
+    "hit@5": 0.9118,
+    "recall@10": 0.9379,
+    "hit@10": 0.9608,
+    "recall@20": 0.9526,
+    "hit@20": 0.9706,
+    "mrr": 0.8389,
+    "ndcg@10": 0.878
+  },
+  "by_category": {
+    "fact": {
+      "n": 30,
+      "recall@5": 0.9333,
+      "recall@10": 0.9667,
+      "hit@5": 0.9333,
+      "mrr": 0.9,
+      "ndcg@10": 0.9389
+    },
+    "false_premise": {
+      "n": 6,
+      "recall@5": 0.1667,
+      "recall@10": 0.5833,
+      "hit@5": 0.1667,
+      "mrr": 0.2408,
+      "ndcg@10": 0.2991
+    },
+    "howto": {
+      "n": 24,
+      "recall@5": 0.8958,
+      "recall@10": 0.9375,
+      "hit@5": 0.9583,
+      "mrr": 0.8417,
+      "ndcg@10": 0.911
+    },
+    "multihop": {
+      "n": 18,
+      "recall@5": 0.7685,
+      "recall@10": 0.9259,
+      "hit@5": 1.0,
+      "mrr": 0.8861,
+      "ndcg@10": 0.8338
+    },
+    "version": {
+      "n": 24,
+      "recall@5": 0.9375,
+      "recall@10": 1.0,
+      "hit@5": 0.9583,
+      "mrr": 0.874,
+      "ndcg@10": 0.9466
+    }
+  }
+}

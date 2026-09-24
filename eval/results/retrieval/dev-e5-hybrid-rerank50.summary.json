@@ -1,0 +1,72 @@
+{
+  "name": "e5-hybrid-rerank50",
+  "split": "dev",
+  "config": {
+    "method": "hybrid",
+    "rerank": "rerank-3",
+    "candidates": 50,
+    "model": "voyage-4",
+    "index_name": "heading-plain",
+    "k": 20
+  },
+  "commit": "f84f784",
+  "time": "2026-09-23T23:14:27",
+  "skipped_without_evidence": 18,
+  "n": 102,
+  "overall": {
+    "recall@1": 0.665,
+    "hit@1": 0.7745,
+    "recall@3": 0.817,
+    "hit@3": 0.8824,
+    "recall@5": 0.8464,
+    "hit@5": 0.9118,
+    "recall@10": 0.9281,
+    "hit@10": 0.951,
+    "recall@20": 0.9624,
+    "hit@20": 0.9804,
+    "mrr": 0.8401,
+    "ndcg@10": 0.8755
+  },
+  "by_category": {
+    "fact": {
+      "n": 30,
+      "recall@5": 0.9333,
+      "recall@10": 0.9667,
+      "hit@5": 0.9333,
+      "mrr": 0.9,
+      "ndcg@10": 0.9389
+    },
+    "false_premise": {
+      "n": 6,
+      "recall@5": 0.3333,
+      "recall@10": 0.4167,
+      "hit@5": 0.3333,
+      "mrr": 0.2657,
+      "ndcg@10": 0.2652
+    },
+    "howto": {
+      "n": 24,
+      "recall@5": 0.8542,
+      "recall@10": 0.9583,
+      "hit@5": 0.9167,
+      "mrr": 0.8403,
+      "ndcg@10": 0.9188
+    },
+    "multihop": {
+      "n": 18,
+      "recall@5": 0.7407,
+      "recall@10": 0.8981,
+      "hit@5": 1.0,
+      "mrr": 0.8861,
+      "ndcg@10": 0.8214
+    },
+    "version": {
+      "n": 24,
+      "recall@5": 0.9375,
+      "recall@10": 1.0,
+      "hit@5": 0.9583,
+      "mrr": 0.874,
+      "ndcg@10": 0.9463
+    }
+  }
+}
