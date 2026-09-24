@@ -20,6 +20,7 @@ model is chosen (experiment E3).
 Usage:
     uv run python -m ingest.chunk                  # all versions in ingest/sources.lock.json
     uv run python -m ingest.chunk --versions 1.37
+    uv run python -m ingest.chunk --strategy fixed --out-dir data/chunks-fixed   # E1
 """
 
 import argparse
@@ -365,33 +366,78 @@ def chunk_record(record: dict, max_tokens: int = MAX_TOKENS, min_tokens: int = M
     pieces = [p for s in sections for p in section_pieces(s, max_tokens)]
     chunks = merge_small(pieces, min_tokens, max_tokens)
 
-    base_url, _, record_anchor = record["url"].partition("#")
-    out = []
-    for i, chunk in enumerate(chunks):
-        first = chunk.pieces[0].section
-        anchor = first.anchor or record_anchor
-        states_in_chunk = dedupe_states([s for p in chunk.pieces for s in p.section.feature_states])
-        text = chunk.text
-        out.append(
-            {
-                "chunk_id": f"{record['id']}::{i}",
-                "record_id": record["id"],
-                "version": record["version"],
-                "kind": record["kind"],
-                "url": f"{base_url}#{anchor}" if anchor else base_url,
-                "title": record["title"],
-                "heading_path": first.path,
-                "anchor": anchor,
-                "text": text,
-                "n_tokens": count_tokens(text),
-                "content_hash": hashlib.sha256(text.encode()).hexdigest(),
-                "feature_states": states_in_chunk,
-                "content_type": record.get("content_type", ""),
-                "source_path": record["source_path"],
-                "commit": record.get("commit", ""),
-            }
+    out = [
+        chunk_dict(
+            record,
+            i,
+            chunk.pieces[0].section,
+            chunk.text,
+            dedupe_states([s for p in chunk.pieces for s in p.section.feature_states]),
         )
+        for i, chunk in enumerate(chunks)
+    ]
     return out, {"feature_state_markers": markers, "feature_states": len(states)}
+
+
+def chunk_dict(record: dict, i: int, first: Section, text: str, states: list[dict]) -> dict:
+    base_url, _, record_anchor = record["url"].partition("#")
+    anchor = first.anchor or record_anchor
+    return {
+        "chunk_id": f"{record['id']}::{i}",
+        "record_id": record["id"],
+        "version": record["version"],
+        "kind": record["kind"],
+        "url": f"{base_url}#{anchor}" if anchor else base_url,
+        "title": record["title"],
+        "heading_path": first.path,
+        "anchor": anchor,
+        "text": text,
+        "n_tokens": count_tokens(text),
+        "content_hash": hashlib.sha256(text.encode()).hexdigest(),
+        "feature_states": states,
+        "content_type": record.get("content_type", ""),
+        "source_path": record["source_path"],
+        "commit": record.get("commit", ""),
+    }
+
+
+FIXED_OVERLAP = 64
+
+
+def chunk_record_fixed(
+    record: dict, max_tokens: int = MAX_TOKENS, overlap: int = FIXED_OVERLAP, **_
+):
+    """Strategy "fixed" (experiment E1): windows of max_tokens tokens over the whole record,
+    `overlap` tokens shared with the previous window, ignoring headings and block
+    boundaries. A window links to the section it starts in and carries the feature states
+    of every section it touches."""
+    sections = parse_sections(record["title"], record["text"])
+    states = record.get("feature_states") or []
+    markers = assign_feature_states(sections, states)
+    enc = _encoding()
+    tokens: list[int] = []
+    owner: list[int] = []  # section index of each token
+    for n, section in enumerate(sections):
+        text = "\n\n".join(b.text for b in section.blocks)
+        if not text.strip():
+            continue
+        ids = enc.encode(text + "\n\n", disallowed_special=())
+        tokens += ids
+        owner += [n] * len(ids)
+    out = []
+    step = max_tokens - overlap
+    for i, start in enumerate(range(0, max(len(tokens) - overlap, 1), step)):
+        window = slice(start, start + max_tokens)
+        text = enc.decode(tokens[window]).strip()
+        if not text:
+            continue
+        touched = sorted(set(owner[window]))
+        chunk_states = dedupe_states([s for n in touched for s in sections[n].feature_states])
+        out.append(chunk_dict(record, i, sections[owner[start]], text, chunk_states))
+    return out, {"feature_state_markers": markers, "feature_states": len(states)}
+
+
+STRATEGIES = {"heading": chunk_record, "fixed": chunk_record_fixed}
 
 
 # ---------------------------------------------------------------------------- driver
@@ -411,10 +457,10 @@ def percentiles(xs: list[int]) -> dict[str, int]:
     }
 
 
-def chunk_version(records: list[dict], max_tokens: int, min_tokens: int):
+def chunk_version(records: list[dict], max_tokens: int, min_tokens: int, strategy="heading"):
     chunks, mismatched = [], []
     for record in records:
-        out, check = chunk_record(record, max_tokens, min_tokens)
+        out, check = STRATEGIES[strategy](record, max_tokens, min_tokens=min_tokens)
         chunks += out
         if check["feature_state_markers"] != check["feature_states"]:
             mismatched.append(record["id"])
@@ -442,14 +488,15 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--out-dir", type=Path, default=CHUNKS_DIR)
     parser.add_argument("--max-tokens", type=int, default=MAX_TOKENS)
     parser.add_argument("--min-tokens", type=int, default=MIN_TOKENS)
+    parser.add_argument("--strategy", choices=sorted(STRATEGIES), default="heading")
     args = parser.parse_args(argv)
     versions = args.versions or list(load_lock(LOCK_PATH)["sources"])
 
     for version in versions:
         src = args.clean_dir / f"v{version}" / "pages.jsonl"
         records = [json.loads(line) for line in src.read_text().splitlines()]
-        chunks, report = chunk_version(records, args.max_tokens, args.min_tokens)
-        report = {"version": version, **report}
+        chunks, report = chunk_version(records, args.max_tokens, args.min_tokens, args.strategy)
+        report = {"version": version, "strategy": args.strategy, **report}
         out = args.out_dir / f"v{version}"
         out.mkdir(parents=True, exist_ok=True)
         with (out / "chunks.jsonl").open("w") as f:

@@ -8,12 +8,15 @@ class Settings(BaseSettings):
     voyage_api_key: str | None = None
     # Hard cap on cumulative billed Voyage tokens, tracked in data/usage/voyage.jsonl.
     # The account's free allowance is 200M; stay far below it.
-    voyage_token_budget: int = 20_000_000
+    voyage_token_budget: int = 30_000_000
     anthropic_api_key: str | None = None
     # Hard cap on cumulative Claude API spend, tracked in data/usage/anthropic.jsonl.
     anthropic_budget_usd: float = 5.0
     # Let the API's /ask call Claude on this key. Off by default: the demo serves /examples.
     live_answers: bool = False
+    # Per-client request limits for the API's paid endpoints (api.guard).
+    ask_per_minute: int = 5
+    retrieve_per_minute: int = 20
 
 
 def get_settings() -> Settings:

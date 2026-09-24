@@ -181,6 +181,11 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--name", default="baseline", help="run name for the output files")
     parser.add_argument("--model", default="voyage-4", choices=sorted(EMBEDDERS))
     parser.add_argument("--index-name", default="heading-plain")
+    parser.add_argument(
+        "--exact",
+        action="store_true",
+        help="exact nearest neighbours (no HNSW) to rule out approximate-search misses",
+    )
     parser.add_argument("--k", type=int, default=20)
     parser.add_argument("--method", choices=METHODS, default="vector")
     parser.add_argument("--rerank", choices=FREE_TIER_MODELS, help="rerank candidates")
@@ -198,6 +203,9 @@ def main(argv: list[str] | None = None) -> None:
     cache = Cache(CACHE_DIR / f"{embedder.name}-query.jsonl")
     items = load_split(args.split)
     with psycopg.connect(get_settings().database_url) as conn:
+        if args.exact:
+            conn.execute("SET enable_indexscan = off")
+            conn.commit()
         rows = run(
             conn,
             embedder,
@@ -223,6 +231,7 @@ def main(argv: list[str] | None = None) -> None:
             "version_filter": not args.no_version_filter,
             "model": args.model,
             "index_name": args.index_name,
+            "exact": args.exact,
             "k": args.k,
         },
         "commit": git_commit(),

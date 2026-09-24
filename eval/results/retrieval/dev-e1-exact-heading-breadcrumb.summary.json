@@ -1,0 +1,75 @@
+{
+  "name": "e1-exact-heading-breadcrumb",
+  "split": "dev",
+  "config": {
+    "method": "vector",
+    "rerank": null,
+    "candidates": null,
+    "query_mode": "original",
+    "version_filter": true,
+    "model": "voyage-4",
+    "index_name": "heading-breadcrumb",
+    "exact": true,
+    "k": 20
+  },
+  "commit": "d6ed5f7",
+  "time": "2026-09-24T01:47:33",
+  "skipped_without_evidence": 18,
+  "n": 102,
+  "overall": {
+    "recall@1": 0.5327,
+    "hit@1": 0.6275,
+    "recall@3": 0.7843,
+    "hit@3": 0.8627,
+    "recall@5": 0.8431,
+    "hit@5": 0.9216,
+    "recall@10": 0.9199,
+    "hit@10": 0.9706,
+    "recall@20": 0.9624,
+    "hit@20": 0.9902,
+    "mrr": 0.7549,
+    "ndcg@10": 0.8004
+  },
+  "by_category": {
+    "fact": {
+      "n": 30,
+      "recall@5": 0.9167,
+      "recall@10": 0.9833,
+      "hit@5": 0.9333,
+      "mrr": 0.7453,
+      "ndcg@10": 0.8146
+    },
+    "false_premise": {
+      "n": 6,
+      "recall@5": 0.5,
+      "recall@10": 0.6667,
+      "hit@5": 0.5,
+      "mrr": 0.3736,
+      "ndcg@10": 0.4271
+    },
+    "howto": {
+      "n": 24,
+      "recall@5": 0.875,
+      "recall@10": 0.9375,
+      "hit@5": 0.9167,
+      "mrr": 0.75,
+      "ndcg@10": 0.8347
+    },
+    "multihop": {
+      "n": 18,
+      "recall@5": 0.5833,
+      "recall@10": 0.7685,
+      "hit@5": 0.9444,
+      "mrr": 0.7704,
+      "ndcg@10": 0.6717
+    },
+    "version": {
+      "n": 24,
+      "recall@5": 1.0,
+      "recall@10": 1.0,
+      "hit@5": 1.0,
+      "mrr": 0.8556,
+      "ndcg@10": 0.9381
+    }
+  }
+}

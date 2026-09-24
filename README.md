@@ -2,7 +2,7 @@
 
 Q&A over the official Kubernetes documentation, with sentence-level citations, Kubernetes-version awareness, and an evaluation pipeline that reports every change as a number with a confidence interval.
 
-> **Status:** evaluation and experiments done; service and UI in progress. See [`plan.md`](plan.md) for the design and milestones.
+> **Status:** evaluation, experiments, API and UI done; deployment pending. See [`plan.md`](plan.md) for the design and milestones.
 
 ## Local setup (macOS)
 
@@ -51,7 +51,53 @@ Live answers are off by default because they spend the operator's Claude budget;
 
 `ingest.fetch --update --versions 1.35 1.36 1.37` re-pins each version to its branch tip: `release-1.xx` if that branch exists, else `main` (which documents the current release).
 
-Claude calls are metered the same way in `data/usage/anthropic.jsonl`: before each request its worst case (input tokens from the free `count_tokens` endpoint, plus `max_tokens` of output) is checked against `ANTHROPIC_BUDGET_USD` (default $5), and a lost response is booked at its worst case. Voyage calls are metered in `data/usage/voyage.jsonl`; any request that could push the total past `VOYAGE_TOKEN_BUDGET` (default 20M, the free allowance is 200M) is refused before it is sent. Vectors are cached in `data/embeddings/`, so rebuilding the database costs nothing.
+Claude calls are metered the same way in `data/usage/anthropic.jsonl`: before each request its worst case (input tokens from the free `count_tokens` endpoint, plus `max_tokens` of output) is checked against `ANTHROPIC_BUDGET_USD` (default $5), and a lost response is booked at its worst case. Voyage calls are metered in `data/usage/voyage.jsonl`; any request that could push the total past `VOYAGE_TOKEN_BUDGET` (default 30M, the free allowance is 200M) is refused before it is sent. Vectors are cached in `data/embeddings/`, so rebuilding the database costs nothing.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  subgraph ingest["ingest (offline)"]
+    A[kubernetes/website<br/>release-1.35 / 1.36 / main] --> B[clean<br/>Hugo shortcodes → markdown,<br/>feature states]
+    B --> C[chunk<br/>heading sections ≤512 tokens]
+    C --> D[dedupe<br/>33k chunks → 14k texts]
+    D --> E[(Postgres + pgvector<br/>contents · occurrences · HNSW)]
+  end
+  subgraph serve["answer a question"]
+    Q[question] --> V[version<br/>explicit / mentioned / latest]
+    V --> R[vector top 50<br/>voyage-4, version filter]
+    R --> RR[rerank-3 → top 8]
+    RR --> G[claude-sonnet-5<br/>citations API]
+    G --> O[answer + numbered sources]
+  end
+  E --> R
+  subgraph evalp["eval"]
+    GS[golden set<br/>200 items, quote + URL] --> M[retrieval metrics]
+    GS --> J[Claude judge<br/>calibrated vs human]
+    M & J --> BS[bootstrap CIs,<br/>paired comparisons]
+  end
+```
+
+- `ingest/`: fetch → clean → chunk → dedupe → load → embed; every stage writes files, so each is rerunnable and testable.
+- `rag/`: version choice, retrieval (vector / keyword / hybrid, rerank), generation with the Citations API, and the spend ledgers.
+- `eval/`: golden set tools, retrieval metrics, batch generation, judge, calibration, report.
+- `api/` (FastAPI) and `web/` (Next.js): the service and the eval dashboard.
+
+## Design decisions
+
+- **Evidence as quotes, not chunk ids.** A retrieved chunk counts as relevant if it comes from the evidence's page and contains the quote. Labels survive re-chunking, which made E1 possible without relabelling.
+- **Versions are data, not separate indexes.** One text appears once with the versions it occurs in (`versions text[]`); retrieval filters on the question's version and cites that version's URL. E6 measured what the filter buys.
+- **Dedupe before embedding.** 58% of chunk texts repeat across the three versions, so embedding each unique text once cut the Voyage cost by more than half.
+- **Hard spend caps.** Every Claude and Voyage request is checked against a local ledger before it is sent (worst case for Claude: counted input plus `max_tokens`); batch runs reserve their worst case and release it when they settle. The whole project, including every experiment, stayed under $5 of Claude usage.
+- **Numbers come with intervals.** With ~100 items per split a two-point change is often noise, so every comparison is a paired bootstrap on the same items.
+
+## Limitations
+
+- The judge is a Claude model; its calibration kappa (0.88) was measured after revising the rubric on the same sample, and it may favour Claude-written answers (relevant to E8).
+- The golden set was written against these docs by one person; dev items were inspected during pooling, so dev and test are not equally hard.
+- False premises are the weakest category, in retrieval (Recall@5 about 0.33 on dev) and in answers (dev: 3 of 6 fully correct, correctness 0.75; test: 4 of 4). The samples are small, so this is the category most in need of more items.
+- HNSW partial indexes are per embedding model. Loading a second index under the same model degrades filtered approximate search (found in E1), so experiments with extra indexes use exact search and drop the index afterwards.
+- Rate limits and the response cache are in-process, sized for a single-instance demo.
 
 ## Evaluation
 
@@ -72,6 +118,8 @@ A golden set of 200 questions (120 dev / 80 test) over Kubernetes 1.35-1.37: fac
 
 | | change | result | kept? |
 |---|---|---|---|
+| E1 | heading chunks with a heading-path prefix (breadcrumb) | vector-only Recall@5 +0.026 n.s.; with rerank ±0 | no |
+| E2 | contextual chunking (LLM-written chunk context) | skipped: needs an LLM call per chunk, beyond the $5 budget | — |
 | E3 | local Qwen3-Embedding-0.6B instead of voyage-4 | vector Recall@10 −0.034 n.s.; with rerank-3 −0.025 n.s. (all differences negative) | no |
 | E4 | keyword (Postgres FTS) / hybrid RRF instead of vector | keyword Recall@10 −0.126; hybrid Recall@5 +0.034 n.s. | no |
 | E5 | rerank vector top 50 with Voyage rerank-3 | MRR +0.131 [+0.070, +0.194], nDCG@10 +0.112; reproduced on test (MRR +0.130) | **yes** |

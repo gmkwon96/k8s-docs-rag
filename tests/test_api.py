@@ -32,6 +32,10 @@ def client(monkeypatch):
     )
     main.app.dependency_overrides[main.get_conn] = lambda: None
     main.app.dependency_overrides[main.get_embedder] = FakeEmbedder
+    for name in ("retrieve_cache", "ask_cache"):
+        monkeypatch.setattr(main, name, main.ResponseCache())
+    for name in ("retrieve_limit", "ask_limit"):
+        monkeypatch.setattr(main, name, main.RateLimiter(100))
     yield TestClient(main.app)
     main.app.dependency_overrides.clear()
 
@@ -123,3 +127,46 @@ def test_examples_and_eval_results_read_result_files(tmp_path, monkeypatch):
     assert [r["run"] for r in results["generation"]] == ["dev-default"]
     assert results["generation"][0]["judge"] == {"correctness": 1.0}
     assert [r["run"] for r in results["retrieval"]] == ["dev-baseline"]
+
+
+def test_repeated_ask_is_served_from_cache_without_claude(client):
+    claude = FakeClaude()
+    main.app.dependency_overrides[main.get_claude] = lambda: claude
+    body = {"question": "How do I pause a rollout?"}
+    first = events(client.post("/ask", json=body).text)
+    again = events(client.post("/ask", json={"question": "  how do I PAUSE a rollout? "}).text)
+    assert len(claude.calls) == 1
+    assert [n for n, _ in again] == ["version", "hits", "answer"]
+    assert again[-1][1]["text"] == first[-1][1]["text"]
+    assert first[-1][1]["usd"] > 0 and again[-1][1]["usd"] == 0
+
+
+def test_rate_limit_returns_429(client, monkeypatch):
+    monkeypatch.setattr(main, "retrieve_limit", main.RateLimiter(2))
+    codes = [
+        client.post("/retrieve", json={"question": f"question number {n}"}).status_code
+        for n in range(3)
+    ]
+    assert codes == [200, 200, 429]
+    # a cached question is still answered: it costs nothing
+    assert client.post("/retrieve", json={"question": "question number 0"}).json()["cached"]
+
+
+def test_rate_limiter_window_slides():
+    now = [0.0]
+    limiter = main.RateLimiter(1, window=60, clock=lambda: now[0])
+    limiter.check("a")
+    limiter.check("b")
+    with pytest.raises(main.HTTPException):
+        limiter.check("a")
+    now[0] = 61
+    limiter.check("a")
+
+
+def test_cache_evicts_least_recently_used():
+    cache = main.ResponseCache(size=2)
+    cache.put(("a",), 1)
+    cache.put(("b",), 2)
+    cache.get(("a",))
+    cache.put(("c",), 3)
+    assert cache.get(("b",)) is None and cache.get(("a",)) == 1

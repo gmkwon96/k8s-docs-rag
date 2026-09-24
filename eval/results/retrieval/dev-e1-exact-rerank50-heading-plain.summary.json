@@ -1,0 +1,75 @@
+{
+  "name": "e1-exact-rerank50-heading-plain",
+  "split": "dev",
+  "config": {
+    "method": "vector",
+    "rerank": "rerank-3",
+    "candidates": 50,
+    "query_mode": "original",
+    "version_filter": true,
+    "model": "voyage-4",
+    "index_name": "heading-plain",
+    "exact": true,
+    "k": 20
+  },
+  "commit": "d6ed5f7",
+  "time": "2026-09-24T01:48:15",
+  "skipped_without_evidence": 18,
+  "n": 102,
+  "overall": {
+    "recall@1": 0.6748,
+    "hit@1": 0.7843,
+    "recall@3": 0.8268,
+    "hit@3": 0.8922,
+    "recall@5": 0.866,
+    "hit@5": 0.9314,
+    "recall@10": 0.933,
+    "hit@10": 0.9608,
+    "recall@20": 0.9722,
+    "hit@20": 0.9902,
+    "mrr": 0.8504,
+    "ndcg@10": 0.8839
+  },
+  "by_category": {
+    "fact": {
+      "n": 30,
+      "recall@5": 0.9667,
+      "recall@10": 1.0,
+      "hit@5": 0.9667,
+      "mrr": 0.9333,
+      "ndcg@10": 0.9722
+    },
+    "false_premise": {
+      "n": 6,
+      "recall@5": 0.3333,
+      "recall@10": 0.4167,
+      "hit@5": 0.3333,
+      "mrr": 0.2683,
+      "ndcg@10": 0.2725
+    },
+    "howto": {
+      "n": 24,
+      "recall@5": 0.8958,
+      "recall@10": 0.9583,
+      "hit@5": 0.9583,
+      "mrr": 0.8417,
+      "ndcg@10": 0.9183
+    },
+    "multihop": {
+      "n": 18,
+      "recall@5": 0.7407,
+      "recall@10": 0.8981,
+      "hit@5": 1.0,
+      "mrr": 0.8861,
+      "ndcg@10": 0.8214
+    },
+    "version": {
+      "n": 24,
+      "recall@5": 0.9375,
+      "recall@10": 0.9792,
+      "hit@5": 0.9583,
+      "mrr": 0.874,
+      "ndcg@10": 0.9389
+    }
+  }
+}

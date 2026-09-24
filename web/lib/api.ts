@@ -34,6 +34,11 @@ export type Example = {
   sources: Source[];
 };
 
+function failure(what: string, status: number): Error {
+  if (status === 429) return new Error("Too many requests from this address; try again in a minute.");
+  return new Error(`${what} failed (${status})`);
+}
+
 export async function health(): Promise<{ versions: string[] }> {
   const r = await fetch("/api/health");
   if (!r.ok) throw new Error(`API unavailable (${r.status})`);
@@ -55,7 +60,7 @@ export async function retrieve(
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ question, version }),
   });
-  if (!r.ok) throw new Error(`Retrieval failed (${r.status})`);
+  if (!r.ok) throw failure("Retrieval", r.status);
   return r.json();
 }
 
@@ -75,7 +80,7 @@ export async function* ask(question: string, version: string | null): AsyncGener
     body: JSON.stringify({ question, version }),
   });
   if (r.status === 403) throw new LiveDisabled();
-  if (!r.ok || !r.body) throw new Error(`Ask failed (${r.status})`);
+  if (!r.ok || !r.body) throw failure("Ask", r.status);
   const reader = r.body.pipeThrough(new TextDecoderStream()).getReader();
   let buffer = "";
   for (;;) {

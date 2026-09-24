@@ -1,7 +1,14 @@
 import json
 import re
 
-from ingest.chunk import anchorize, chunk_record, count_tokens, main, parse_sections
+from ingest.chunk import (
+    anchorize,
+    chunk_record,
+    chunk_record_fixed,
+    count_tokens,
+    main,
+    parse_sections,
+)
 
 
 def record(text, title="Page", url="https://kubernetes.io/docs/page/", **extra):
@@ -174,3 +181,17 @@ def test_main_writes_chunks_and_report(tmp_path):
     report = json.loads((out / "v1.37/report.json").read_text())
     assert len(chunks) == report["chunks"] == 1
     assert report["over_max"] == 0 and report["feature_state_mismatches"] == []
+
+
+def test_fixed_windows_overlap_and_link_to_their_starting_section():
+    text = "\n\n".join(
+        [paragraph(300, "intro"), "## Alpha", paragraph(300, "alpha"), "## Beta", paragraph(300)]
+    )
+    chunks, _ = chunk_record_fixed(record(text), max_tokens=256, overlap=32)
+    assert all(c["n_tokens"] <= 258 for c in chunks)
+    assert chunks[0]["url"] == "https://kubernetes.io/docs/page/"
+    assert any(c["anchor"] == "alpha" for c in chunks)
+    assert chunks[-1]["anchor"] == "beta"
+    # consecutive windows share their boundary text
+    tail = chunks[0]["text"].split()[-5:]
+    assert " ".join(tail) in chunks[1]["text"]
