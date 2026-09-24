@@ -91,3 +91,10 @@ def test_document_title_is_never_empty():
     assert document(h)["title"] == "Synopsis"
     h.heading_path = [""]
     assert document(h)["title"] == "/docs/p0/"
+
+
+def test_models_without_adaptive_thinking_get_no_thinking_params():
+    r = request("q", "1.36", [hit(0)], model="claude-haiku-4-5")
+    assert r["model"] == "claude-haiku-4-5"
+    assert "thinking" not in r and "output_config" not in r
+    assert request("q", "1.36", [hit(0)])["thinking"] == {"type": "adaptive"}

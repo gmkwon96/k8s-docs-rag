@@ -1,0 +1,39 @@
+{
+  "name": "e8-haiku-s50",
+  "split": "dev",
+  "config": {
+    "model": "claude-haiku-4-5",
+    "effort": null,
+    "sample": 50,
+    "max_tokens": 2000,
+    "retrieval": {
+      "method": "vector",
+      "rerank": "rerank-3",
+      "candidates": 50,
+      "k": 8
+    },
+    "embedder": "voyage-4"
+  },
+  "commit": "3d31bc9",
+  "time": "2026-09-24T01:17:06",
+  "missing": [],
+  "n": 50,
+  "refusal": {
+    "unanswerable_refused": 1,
+    "answerable_false_refusal": 0,
+    "false_premise_refused": 1
+  },
+  "citations": {
+    "answerable_with_citation": 1,
+    "citation_hit": 0.925,
+    "citation_precision_strict": 0.7208
+  },
+  "stop_reasons": {
+    "end_turn": 50
+  },
+  "usd": 0.1529,
+  "tokens": {
+    "input": 260838,
+    "output": 8976
+  }
+}

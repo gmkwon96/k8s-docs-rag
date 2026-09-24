@@ -1,0 +1,74 @@
+{
+  "name": "e3-qwen-vector",
+  "split": "dev",
+  "config": {
+    "method": "vector",
+    "rerank": null,
+    "candidates": null,
+    "query_mode": "original",
+    "version_filter": true,
+    "model": "qwen3-embedding-0.6b",
+    "index_name": "heading-plain",
+    "k": 20
+  },
+  "commit": "3d31bc9",
+  "time": "2026-09-24T01:38:25",
+  "skipped_without_evidence": 18,
+  "n": 102,
+  "overall": {
+    "recall@1": 0.4837,
+    "hit@1": 0.5588,
+    "recall@3": 0.7042,
+    "hit@3": 0.7745,
+    "recall@5": 0.8023,
+    "hit@5": 0.8627,
+    "recall@10": 0.8562,
+    "hit@10": 0.902,
+    "recall@20": 0.9003,
+    "hit@20": 0.951,
+    "mrr": 0.6877,
+    "ndcg@10": 0.741
+  },
+  "by_category": {
+    "fact": {
+      "n": 30,
+      "recall@5": 0.9,
+      "recall@10": 0.9333,
+      "hit@5": 0.9,
+      "mrr": 0.6964,
+      "ndcg@10": 0.7698
+    },
+    "false_premise": {
+      "n": 6,
+      "recall@5": 0.3333,
+      "recall@10": 0.4167,
+      "hit@5": 0.3333,
+      "mrr": 0.39,
+      "ndcg@10": 0.3641
+    },
+    "howto": {
+      "n": 24,
+      "recall@5": 0.8125,
+      "recall@10": 0.875,
+      "hit@5": 0.8333,
+      "mrr": 0.6268,
+      "ndcg@10": 0.7306
+    },
+    "multihop": {
+      "n": 18,
+      "recall@5": 0.5463,
+      "recall@10": 0.6852,
+      "hit@5": 0.8333,
+      "mrr": 0.6041,
+      "ndcg@10": 0.5596
+    },
+    "version": {
+      "n": 24,
+      "recall@5": 0.9792,
+      "recall@10": 0.9792,
+      "hit@5": 1.0,
+      "mrr": 0.875,
+      "ndcg@10": 0.9455
+    }
+  }
+}

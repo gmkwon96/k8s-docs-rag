@@ -13,6 +13,9 @@ from rag.retrieve import Hit
 MODEL = "claude-sonnet-5"
 EFFORT = "medium"
 MAX_TOKENS = 2000  # thinking + answer; also the output side of the worst-case cost check
+# Models that take adaptive thinking and an effort level. Others (claude-haiku-4-5, compared
+# in E8) answer without thinking.
+ADAPTIVE_MODELS = ("claude-sonnet-5", "claude-opus-5-5")
 
 NOT_FOUND = "I couldn't find this in the Kubernetes documentation."
 
@@ -66,17 +69,23 @@ def document(hit: Hit) -> dict:
     }
 
 
-def request(question: str, version: str, hits: list[Hit], note: str = "") -> dict:
+def request(
+    question: str, version: str, hits: list[Hit], note: str = "", model: str = MODEL
+) -> dict:
     prompt = f"Kubernetes version: {version}\n"
     if note:
         prompt += f"Note: {note}\n"
     prompt += f"\nQuestion: {question}"
+    thinking = (
+        {"thinking": {"type": "adaptive"}, "output_config": {"effort": EFFORT}}
+        if model in ADAPTIVE_MODELS
+        else {}
+    )
     return {
-        "model": MODEL,
+        "model": model,
         "max_tokens": MAX_TOKENS,
         "system": SYSTEM,
-        "thinking": {"type": "adaptive"},
-        "output_config": {"effort": EFFORT},
+        **thinking,
         "messages": [
             {
                 "role": "user",

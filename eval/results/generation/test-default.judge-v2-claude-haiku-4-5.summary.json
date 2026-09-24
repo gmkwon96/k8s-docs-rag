@@ -1,0 +1,52 @@
+{
+  "run": "test-default",
+  "judge_model": "claude-haiku-4-5",
+  "judge_version": "v2",
+  "time": "2026-09-24T01:08:55",
+  "missing": [],
+  "judge_usd": 0.153,
+  "overall": {
+    "n": 80,
+    "correctness": 0.9875,
+    "fully_correct": 0.975,
+    "faithfulness": 0.9965
+  },
+  "by_category": {
+    "fact": {
+      "n": 20,
+      "correctness": 1.0,
+      "fully_correct": 1,
+      "faithfulness": 1.0
+    },
+    "false_premise": {
+      "n": 4,
+      "correctness": 1.0,
+      "fully_correct": 1,
+      "faithfulness": 1.0
+    },
+    "howto": {
+      "n": 16,
+      "correctness": 1.0,
+      "fully_correct": 1,
+      "faithfulness": 1.0
+    },
+    "multihop": {
+      "n": 12,
+      "correctness": 0.9583,
+      "fully_correct": 0.9167,
+      "faithfulness": 1.0
+    },
+    "unanswerable": {
+      "n": 12,
+      "correctness": 0.9583,
+      "fully_correct": 0.9167,
+      "faithfulness": 0.9861
+    },
+    "version": {
+      "n": 16,
+      "correctness": 1.0,
+      "fully_correct": 1,
+      "faithfulness": 0.993
+    }
+  }
+}

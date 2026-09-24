@@ -57,4 +57,50 @@ class VoyageEmbedder:
         return result.embeddings, result.total_tokens
 
 
-EMBEDDERS = {e.name: e for e in [VoyageEmbedder("voyage-4", "voyage-4", 1024)]}
+@dataclass(frozen=True)
+class LocalEmbedder:
+    """An open-weights model run locally with sentence-transformers (experiment E3).
+
+    Free to run, so there is no ledger. Needs the optional `local` dependency group:
+    `uv sync --group local`. Queries get the model's retrieval instruction ("query" prompt);
+    documents are embedded as-is, as the model card recommends. On Apple silicon the model
+    runs in float16 on MPS (fp32 exhausted memory on a 16GB machine and was ~3x slower).
+    """
+
+    name: str
+    model: str
+    dim: int
+    max_batch_texts: int = 256  # one embed() call; encode() splits it into batch_size
+    max_batch_tokens: int = 100_000
+    batch_size: int = 16
+
+    @cached_property
+    def st(self):
+        import torch
+        from sentence_transformers import SentenceTransformer
+
+        if torch.backends.mps.is_available():
+            return SentenceTransformer(
+                self.model, device="mps", model_kwargs={"torch_dtype": torch.float16}
+            )
+        return SentenceTransformer(self.model, device="cpu")
+
+    def embed(self, texts: list[str], input_type: InputType) -> tuple[list[list[float]], int]:
+        prompt = "query" if input_type == "query" else None
+        vectors = self.st.encode(
+            texts, prompt_name=prompt, normalize_embeddings=True, batch_size=self.batch_size
+        )
+        if self.st.device.type == "mps":
+            import torch
+
+            torch.mps.empty_cache()
+        return vectors.astype("float32").tolist(), 0
+
+
+EMBEDDERS = {
+    e.name: e
+    for e in [
+        VoyageEmbedder("voyage-4", "voyage-4", 1024),
+        LocalEmbedder("qwen3-embedding-0.6b", "Qwen/Qwen3-Embedding-0.6B", 1024),
+    ]
+}

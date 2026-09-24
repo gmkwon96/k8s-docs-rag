@@ -19,6 +19,7 @@ Usage:
 
 import argparse
 import json
+import random
 import statistics
 import time
 from pathlib import Path
@@ -41,18 +42,30 @@ ROOT = Path(__file__).resolve().parent.parent
 RESULTS_DIR = ROOT / "eval" / "results" / "generation"
 
 
-def build(conn, embedder, items, config: RetrievalConfig, cache: Cache):
+def build(conn, embedder, items, config: RetrievalConfig, cache: Cache, model=generate.MODEL):
     """-> [(item, hits, request params)] in item order."""
     vectors = query_vectors(embedder, [i.question for i in items], cache)
     out = []
     for item, vector in zip(items, vectors, strict=True):
         hits = retrieve(conn, item.question, vector, item.version, config, model=embedder.name)
-        out.append((item, hits, generate.request(item.question, item.version, hits)))
+        out.append((item, hits, generate.request(item.question, item.version, hits, model=model)))
     return out
 
 
-def score_item(item, hits: list[Hit], message) -> dict:
-    answer = generate.parse(message, hits, cost(generate.MODEL, message.usage, batch=True))
+def stratified_sample(items, n: int, seed: int = 0):
+    """About n items with each category's share kept; the same items for every model."""
+    rng = random.Random(seed)
+    by_cat: dict[str, list] = {}
+    for item in items:
+        by_cat.setdefault(item.category, []).append(item)
+    picked = []
+    for group in by_cat.values():
+        picked += rng.sample(group, max(1, round(n * len(group) / len(items))))
+    return sorted(picked, key=lambda i: i.id)
+
+
+def score_item(item, hits: list[Hit], message, model=generate.MODEL) -> dict:
+    answer = generate.parse(message, hits, cost(model, message.usage, batch=True))
     facts = [[(p.url, p.quote) for p in e.passages()] for e in item.evidence]
     cited = [(s.hit.url, s.hit.text) for s in answer.sources]
     if facts and cited:
@@ -122,6 +135,10 @@ def main(argv: list[str] | None = None) -> None:
         default="default",
         help="default: vector + rerank-3 (E5); baseline: vector top 8 (milestones 2-3)",
     )
+    parser.add_argument("--model", default=generate.MODEL, help="answer model (E8)")
+    parser.add_argument(
+        "--sample", type=int, help="a seeded, category-stratified subset of this many items"
+    )
     parser.add_argument("--poll", type=float, default=30, help="seconds between status checks")
     parser.add_argument("--out-dir", type=Path, default=RESULTS_DIR)
     parser.add_argument(
@@ -139,26 +156,32 @@ def main(argv: list[str] | None = None) -> None:
     ledger = default_ledger()
     embedder = EMBEDDERS["voyage-4"]
     items = load_split(args.split)
+    if args.sample:
+        items = stratified_sample(items, args.sample)
     stem = f"{args.split}-{args.name}"
     state_path = args.out_dir / f"{stem}.batch.json"
     raw_path = args.out_dir / f"{stem}.raw.jsonl"
 
     with psycopg.connect(get_settings().database_url) as conn:
         config = DEFAULT if args.retrieval == "default" else BASELINE
-        built = build(conn, embedder, items, config, Cache(CACHE_DIR / "voyage-4-query.jsonl"))
+        cache = Cache(CACHE_DIR / "voyage-4-query.jsonl")
+        built = build(conn, embedder, items, config, cache, model=args.model)
     requests = [(item.id, params) for item, _, params in built]
     submit(client, ledger, requests, state_path, max_usd=args.max_usd)
     messages = collect(client, ledger, state_path, raw_path, args.poll)
 
     rows = [
-        score_item(item, hits, messages[item.id]) for item, hits, _ in built if item.id in messages
+        score_item(item, hits, messages[item.id], args.model)
+        for item, hits, _ in built
+        if item.id in messages
     ]
     summary = {
         "name": args.name,
         "split": args.split,
         "config": {
-            "model": generate.MODEL,
-            "effort": generate.EFFORT,
+            "model": args.model,
+            "effort": generate.EFFORT if args.model in generate.ADAPTIVE_MODELS else None,
+            "sample": args.sample,
             "max_tokens": generate.MAX_TOKENS,
             "retrieval": config.__dict__,
             "embedder": embedder.name,

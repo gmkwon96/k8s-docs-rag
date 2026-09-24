@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     anthropic_api_key: str | None = None
     # Hard cap on cumulative Claude API spend, tracked in data/usage/anthropic.jsonl.
     anthropic_budget_usd: float = 5.0
+    # Let the API's /ask call Claude on this key. Off by default: the demo serves /examples.
+    live_answers: bool = False
 
 
 def get_settings() -> Settings:
