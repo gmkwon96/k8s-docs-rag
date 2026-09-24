@@ -2,6 +2,10 @@
 
 Q&A over the official Kubernetes documentation, with sentence-level citations, Kubernetes-version awareness, and an evaluation pipeline that reports every change as a number with a confidence interval.
 
+[![ci](https://github.com/gmkwon96/k8s-docs-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/gmkwon96/k8s-docs-rag/actions/workflows/ci.yml)
+
+**Live demo: [gmkwon96.github.io/k8s-docs-rag](https://gmkwon96.github.io/k8s-docs-rag/)** — example answers with their citations and retrieved chunks, and the [eval dashboard](https://gmkwon96.github.io/k8s-docs-rag/eval/) with 95% confidence intervals. It is a static build (no live Claude calls); see [Static demo](#local-setup-macos) to run the full service locally.
+
 > **Status:** evaluation, experiments, API, UI and static demo done. See [`plan.md`](plan.md) for the design and milestones.
 
 ## Local setup (macOS)
