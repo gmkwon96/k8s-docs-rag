@@ -1,0 +1,34 @@
+{
+  "name": "baseline",
+  "split": "dev",
+  "config": {
+    "model": "claude-sonnet-5",
+    "effort": "medium",
+    "max_tokens": 2000,
+    "k": 8,
+    "embedder": "voyage-4"
+  },
+  "commit": "991c8ba",
+  "time": "2026-09-23T20:48:55",
+  "missing": [],
+  "n": 120,
+  "refusal": {
+    "unanswerable_refused": 1,
+    "answerable_false_refusal": 0.0104,
+    "false_premise_refused": 0.1667
+  },
+  "citations": {
+    "answerable_with_citation": 1,
+    "citation_hit": 0.9167,
+    "citation_precision_strict": 0.5385
+  },
+  "stop_reasons": {
+    "end_turn": 119,
+    "max_tokens": 1
+  },
+  "usd": 1.0764,
+  "tokens": {
+    "input": 763389,
+    "output": 62598
+  }
+}

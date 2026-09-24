@@ -32,16 +32,18 @@ PRICES = {
     "claude-opus-5-5": Price(input=4.00, output=20.00, cache_write=5.00, cache_read=0.20),
 }
 MAX_INPUT_TOKENS = 200_000  # stay below long-context pricing tiers
+BATCH_DISCOUNT = 0.5  # Message Batches API: 50% off all token usage
 
 
-def cost(model: str, usage) -> float:
+def cost(model: str, usage, batch: bool = False) -> float:
     p = PRICES[model]
-    return (
+    usd = (
         usage.input_tokens * p.input
         + (usage.cache_creation_input_tokens or 0) * p.cache_write
         + (usage.cache_read_input_tokens or 0) * p.cache_read
         + usage.output_tokens * p.output
     ) / 1e6
+    return usd * BATCH_DISCOUNT if batch else usd
 
 
 def worst_case(model: str, input_tokens: int, max_tokens: int) -> float:
@@ -65,13 +67,27 @@ class DollarLedger:
         if input_tokens > MAX_INPUT_TOKENS:
             raise BudgetExceeded(f"refusing request: {input_tokens:,} input tokens")
         worst = worst_case(model, input_tokens, max_tokens)
+        self.check_amount(worst)
+        return worst
+
+    def check_amount(self, usd: float) -> None:
         spent = self.spent()
-        if spent + worst > self.budget_usd:
+        if spent + usd > self.budget_usd:
             raise BudgetExceeded(
-                f"refusing request: ${spent:.4f} spent + up to ${worst:.4f} "
+                f"refusing request: ${spent:.4f} spent + up to ${usd:.4f} "
                 f"> budget ${self.budget_usd:.2f} (ANTHROPIC_BUDGET_USD)"
             )
-        return worst
+
+    def adjust(self, usd: float, purpose: str) -> None:
+        """A reservation (positive) or its release (negative), e.g. around a batch."""
+        self._append(
+            {"time": time.strftime("%Y-%m-%dT%H:%M:%S"), "usd": round(usd, 6), "purpose": purpose}
+        )
+
+    def _append(self, row: dict) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        with self.path.open("a") as f:
+            f.write(json.dumps(row) + "\n")
 
     def record_unconfirmed(self, model: str, usd: float, purpose: str) -> None:
         row = {
@@ -84,8 +100,8 @@ class DollarLedger:
         with self.path.open("a") as f:
             f.write(json.dumps(row) + "\n")
 
-    def record(self, model: str, usage, purpose: str) -> float:
-        usd = cost(model, usage)
+    def record(self, model: str, usage, purpose: str, batch: bool = False) -> float:
+        usd = cost(model, usage, batch)
         row = {
             "time": time.strftime("%Y-%m-%dT%H:%M:%S"),
             "model": model,
@@ -95,10 +111,9 @@ class DollarLedger:
             "output_tokens": usage.output_tokens,
             "usd": round(usd, 6),
             "purpose": purpose,
+            **({"batch": True} if batch else {}),
         }
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        with self.path.open("a") as f:
-            f.write(json.dumps(row) + "\n")
+        self._append(row)
         return usd
 
 

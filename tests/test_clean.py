@@ -269,3 +269,16 @@ def test_main_writes_outputs(site, tmp_path):
     ]
     assert gates[0]["name"] == "MyGate"
     assert json.loads((out / "v1.36/report.json").read_text())["version"] == "1.36"
+
+
+def test_page_title_fallbacks(tmp_path):
+    from ingest.clean import page_title
+
+    p = tmp_path / "kubeadm_certs_renew_all.md"
+    assert page_title({"title": "T"}, "", p) == "T"
+    assert page_title({"linkTitle": "L"}, "", p) == "L"
+    assert page_title({}, "text\n\n### Node lifecycle conditions {#x}\n", p) == (
+        "Node lifecycle conditions"
+    )
+    assert page_title({}, "Renew all certificates", p) == "kubeadm certs renew all"
+    assert page_title({}, "", tmp_path / "some-dir" / "_index.md") == "some dir"

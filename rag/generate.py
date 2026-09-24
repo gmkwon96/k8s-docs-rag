@@ -6,6 +6,7 @@ citations point back to documents by index, which we map to numbered sources.
 """
 
 from dataclasses import dataclass, field
+from urllib.parse import urlsplit
 
 from rag.retrieve import Hit
 
@@ -58,7 +59,8 @@ def document(hit: Hit) -> dict:
     return {
         "type": "document",
         "source": {"type": "text", "media_type": "text/plain", "data": hit.text},
-        "title": " > ".join(hit.heading_path),
+        # Never empty: the API rejects a document with an empty title.
+        "title": " > ".join(p for p in hit.heading_path if p) or urlsplit(hit.url).path,
         "context": context,
         "citations": {"enabled": True},
     }

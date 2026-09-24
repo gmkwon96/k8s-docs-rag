@@ -173,6 +173,21 @@ def tidy(text: str) -> str:
     return text.strip() + "\n"
 
 
+def page_title(front: dict, body: str, path: Path) -> str:
+    """Front matter title, else linkTitle, else the first heading, else the file name.
+
+    Generated reference pages (kubeadm commands) and some fragments have no front matter;
+    Claude's API rejects a document with an empty title."""
+    for key in ("title", "linkTitle"):
+        if front.get(key):
+            return str(front[key]).strip()
+    m = re.search(r"^#{1,6}\s+(.+?)\s*(?:\{#[^}]*\})?\s*$", body, re.M)
+    if m:
+        return m[1].strip()
+    stem = path.parent.name if path.stem in ("_index", "index") else path.stem
+    return stem.replace("_", " ").replace("-", " ")
+
+
 def prose(text: str) -> str:
     """Text with fenced code blocks (and their fence lines) removed."""
     kept, in_fence = [], False
@@ -610,7 +625,7 @@ def clean_version(raw: Path, version: str) -> tuple[list[dict], list[FeatureGate
                 "page",
                 rel,
                 url_path(path.relative_to(content), front),
-                str(front.get("title", "")),
+                page_title(front, body, path),
                 text,
                 description=str(front.get("description") or "").strip(),
                 content_type=str(front.get("content_type") or "").strip().strip('"'),

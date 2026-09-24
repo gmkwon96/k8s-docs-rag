@@ -83,3 +83,11 @@ def test_refusal_and_truncation():
     assert parse(response([], stop="refusal"), [], 0.0).stop_reason == "refusal"
     a = parse(response([text("partial", [0])], stop="max_tokens"), [hit(0)], 0.0)
     assert a.text.endswith("(Answer truncated: output limit reached.)")
+
+
+def test_document_title_is_never_empty():
+    h = hit(0)
+    h.heading_path = ["", "Synopsis"]
+    assert document(h)["title"] == "Synopsis"
+    h.heading_path = [""]
+    assert document(h)["title"] == "/docs/p0/"
