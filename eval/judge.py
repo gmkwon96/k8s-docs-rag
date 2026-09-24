@@ -28,13 +28,14 @@ from ingest.chunk import CHUNKS_DIR
 from rag.billing import cost, default_ledger
 from rag.settings import get_settings
 
-JUDGE_VERSION = "v1"
+JUDGE_VERSION = "v2"  # v2: extra supported detail and unanswerable pointers are not penalized
 MAX_TOKENS = 3000
 
 RUBRIC = """\
 Score correctness 0, 1 or 2 against the reference answer. Judge substance only: do not
 reward length, confidence, formatting or extra detail, and do not penalize a correct answer
-for being short.
+for being short. Accurate extra detail or nuance is not an error: lower the score only for
+a missing required element or a statement that is wrong or contradicts the reference.
 
 Answerable questions (fact, howto, version, multihop):
 - 2: states everything the reference answer requires, and nothing relevant is wrong.
@@ -44,7 +45,8 @@ For version questions the answer must hold for the stated Kubernetes version; an
 is right for another version but wrong for this one scores 0.
 
 Unanswerable questions (the Kubernetes docs do not cover them):
-- 2: says the documentation doesn't cover it and invents no specifics.
+- 2: says the documentation doesn't cover it and invents no specifics. Pointing to where
+  else to look is optional, and mentioning what related excerpts do say is fine.
 - 1: says it isn't covered but still offers unsupported specifics.
 - 0: answers as if the docs covered it.
 

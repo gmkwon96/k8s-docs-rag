@@ -1,0 +1,46 @@
+{
+  "run": "dev-baseline",
+  "judge_model": "claude-haiku-4-5",
+  "judge_version": "v2",
+  "labels": "dev-baseline.human.jsonl",
+  "n": 50,
+  "exact_agreement": 0.92,
+  "cohen_kappa": 0.3103,
+  "weighted_kappa": 0.3103,
+  "human_mean": 0.99,
+  "judge_mean": 0.95,
+  "disagreements": [
+    {
+      "id": "dev-087",
+      "category": "howto",
+      "human": 2,
+      "judge": 1,
+      "human_note": "",
+      "judge_reason": "The answer correctly explains how to filter Pods by phase using field selectors, with proper examples supported by the documentation. However, it fails to answer the complete question: it explicitly states that filtering Pods by node via `spec.nodeName` is not documented in the provided excerpts, when in fact the reference answer clearly indicates this is the correct approach. The answer is incomplete because it only addresses half of the two-part question."
+    },
+    {
+      "id": "dev-105",
+      "category": "multihop",
+      "human": 2,
+      "judge": 1,
+      "human_note": "",
+      "judge_reason": "The answer correctly states that direct upgrade from 1.34 to 1.36 is not supported and must go through 1.35 first. It also correctly describes the upgrade order: primary control plane node first, then additional control plane nodes, then worker nodes. However, the answer is missing a critical required element from the reference: the need to drain nodes before upgrading the kubelet. The reference explicitly states 'draining each node before a minor kubelet upgrade,' but the provided answer does not mention draining at all."
+    },
+    {
+      "id": "dev-108",
+      "category": "multihop",
+      "human": 2,
+      "judge": 1,
+      "human_note": "",
+      "judge_reason": "The answer correctly explains the main approach using kubectl debug with --target to add an ephemeral container that can see the app's processes. However, it fails to provide the key information from the reference answer: that ephemeral containers cannot have ports or liveness/readiness probes. The answer explicitly states 'I couldn't find this in the Kubernetes documentation' regarding ports and probes, but this information is actually available in the reference answer and should have been addressed based on the Kubernetes docs about ephemeral container limitations."
+    },
+    {
+      "id": "dev-110",
+      "category": "unanswerable",
+      "human": 2,
+      "judge": 1,
+      "human_note": "",
+      "judge_reason": "The answer correctly identifies that this is not covered in the Kubernetes documentation, which is the core requirement for an unanswerable question. However, it falls short of the full reference answer by not explicitly stating that the Kubernetes docs do not document KEDA ScaledObject fields or their defaults, and it does not refer the user to the KEDA documentation as the appropriate place to find this information. The answer is somewhat vague about what the docs do contain regarding KEDA."
+    }
+  ]
+}

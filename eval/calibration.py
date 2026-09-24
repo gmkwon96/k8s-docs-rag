@@ -92,9 +92,9 @@ def cohen_kappa(a: list[int], b: list[int], labels=(0, 1, 2), weighted: bool = F
     return 1.0 if de == 0 else 1 - do / de
 
 
-def agreement(run: str, judge_model: str, labels_path: Path) -> dict:
+def agreement(run: str, judge_model: str, labels_path: Path, version: str = JUDGE_VERSION) -> dict:
     human = {r["id"]: r for r in map(json.loads, labels_path.read_text().splitlines())}
-    stem = f"{run}.judge-{JUDGE_VERSION}-{judge_model}"
+    stem = f"{run}.judge-{version}-{judge_model}"
     judged = {
         r["id"]: r
         for r in map(json.loads, (RESULTS_DIR / f"{stem}.jsonl").read_text().splitlines())
@@ -117,7 +117,8 @@ def agreement(run: str, judge_model: str, labels_path: Path) -> dict:
     return {
         "run": run,
         "judge_model": judge_model,
-        "judge_version": JUDGE_VERSION,
+        "judge_version": version,
+        "labels": labels_path.name,
         "n": len(ids),
         "exact_agreement": round(sum(x == y for x, y in zip(h, j, strict=True)) / len(ids), 4),
         "cohen_kappa": round(cohen_kappa(h, j), 4),
@@ -145,7 +146,8 @@ def main(argv: list[str] | None = None) -> None:
         print(dict(Counter(r["category"] for r in records)))
     else:
         result = agreement(args.run, args.judge, args.labels)
-        out = CALIBRATION_DIR / f"{args.run}.agreement-{JUDGE_VERSION}-{args.judge}.json"
+        labels = args.labels.name.removesuffix(".jsonl").removeprefix(f"{args.run}.")
+        out = CALIBRATION_DIR / f"{args.run}.agreement-{JUDGE_VERSION}-{args.judge}.{labels}.json"
         out.write_text(json.dumps(result, indent=2) + "\n")
         print(json.dumps({k: v for k, v in result.items() if k != "disagreements"}, indent=2))
         print(f"{len(result['disagreements'])} disagreements -> {out}")

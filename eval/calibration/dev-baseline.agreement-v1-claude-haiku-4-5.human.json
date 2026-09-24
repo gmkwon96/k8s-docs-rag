@@ -1,0 +1,54 @@
+{
+  "run": "dev-baseline",
+  "judge_model": "claude-haiku-4-5",
+  "judge_version": "v1",
+  "labels": "dev-baseline.human.jsonl",
+  "n": 50,
+  "exact_agreement": 0.9,
+  "cohen_kappa": 0.2604,
+  "weighted_kappa": 0.2604,
+  "human_mean": 0.99,
+  "judge_mean": 0.94,
+  "disagreements": [
+    {
+      "id": "dev-045",
+      "category": "multihop",
+      "human": 2,
+      "judge": 1,
+      "human_note": "",
+      "judge_reason": "The answer correctly identifies that BestEffort and Burstable pods with usage exceeding requests are evicted first, and correctly establishes that a pod with no requests or limits is BestEffort. However, it contains a problematic statement: it claims 'the kubelet does not use the pod's QoS class to determine the eviction order directly' and that 'QoS is only useful as an estimate,' then attempts to distinguish between QoS class and the actual ranking mechanism. This creates confusion because the reference answer and source [1] clearly show that QoS class (specifically whether a pod is BestEffort, Burstable, or Guaranteed) is the primary determinant of eviction order. Source [1]'s note about not using QoS class 'to determine the eviction order' means QoS isn't used as a standalone tiebreaker\u2014rather, within each QoS tier, Priority and usage-relative-to-requests determine ordering. The answer's framing obscures this and could mislead readers into thinking QoS doesn't fundamentally determine which pods are evicted first."
+    },
+    {
+      "id": "dev-087",
+      "category": "howto",
+      "human": 2,
+      "judge": 1,
+      "human_note": "",
+      "judge_reason": "The answer correctly explains how to filter Pods by phase using field selectors and provides accurate examples supported by the documentation. However, it claims that filtering by node (`spec.nodeName`) is not documented, when the reference answer explicitly states this is a valid field selector. The answer is missing this required element of the complete solution."
+    },
+    {
+      "id": "dev-105",
+      "category": "multihop",
+      "human": 2,
+      "judge": 1,
+      "human_note": "",
+      "judge_reason": "The answer correctly states that direct upgrade from 1.34 to 1.36 is not supported and that the path is 1.34\u21921.35\u21921.36. It also correctly describes the upgrade order: primary control plane first, then additional control plane nodes, then worker nodes. However, the reference answer specifies that nodes should be drained before a minor kubelet upgrade, and the provided answer does not mention draining nodes at all. This is a missing required element."
+    },
+    {
+      "id": "dev-108",
+      "category": "multihop",
+      "human": 2,
+      "judge": 1,
+      "human_note": "",
+      "judge_reason": "The answer correctly explains how to use kubectl debug with ephemeral containers and the --target flag to see the app's processes. It correctly identifies that the documentation doesn't specify whether debug containers can have ports or probes. However, the reference answer directly states that 'Ephemeral containers cannot have ports or liveness/readiness probes, and cannot set resources,' which is a definitive claim. The answer should have stated this rather than saying 'I couldn't find this in the Kubernetes documentation.' The reference answer implies this is documented information, though it may not be explicitly in the provided sources."
+    },
+    {
+      "id": "dev-110",
+      "category": "unanswerable",
+      "human": 2,
+      "judge": 1,
+      "human_note": "",
+      "judge_reason": "The answer correctly identifies that this is not covered in the Kubernetes documentation, which is the main point. However, it doesn't explicitly state that KEDA documentation should be consulted for this information, as the reference answer does. The answer also adds a specific (though vague) detail about the Cron scaler that goes slightly beyond simply saying it isn't covered."
+    }
+  ]
+}

@@ -129,6 +129,13 @@ Kubernetes 공식 문서를 근거로 답하는 Q&A 서비스. 목적은 미국 
 | 생성 | Version accuracy | 버전 의존 질문에서 올바른 버전 기준으로 답했나 |
 | 운영 | p50/p95 지연 시간, 질문당 비용 | 요청 로그에서 집계 |
 
+### (구현 현황, 마일스톤 3)
+- 생성 eval `eval/run_generation.py`: Batches API(50% 할인), 제출 전 배치 전체 최악 비용을 예약하고 결과 후 정산, 재실행 시 같은 배치 재개. dev 120문항 답변 $1.08
+- judge `eval/judge.py`: `claude-haiku-4-5`(답변 모델과 다른 모델, 비용 때문에 Opus 대신), structured outputs로 정확성 0/1/2 + 주장 단위 근거 충실도. 120문항 $0.20
+- 보정 `eval/calibration.py`: 층화 50문항 사람 블라인드 채점 → 원점수 대비 kappa 0.31(점수 쏠림: 49/50이 2점), 불일치 5건 판정 후 rubric v2 → kappa 0.88. 같은 50문항으로 rubric을 고쳤으므로 낙관적 추정. 새 표본 30문항으로 재검증하면 편향 제거 가능
+- 보고 `eval/report.py`: 모든 지표에 95% bootstrap CI, 설정 비교는 paired bootstrap(`--compare`)
+- 누적 Claude 비용 $1.67 / $5
+
 ### 3. Judge 신뢰성 검증
 - dev 세트 50문항은 직접 채점 → judge 채점과의 일치도(Cohen's kappa) 계산해 README에 공개
 - 불일치 사례를 분석해 judge 프롬프트 개선 → 재측정

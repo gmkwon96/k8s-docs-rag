@@ -1,0 +1,50 @@
+{"id": "dev-001", "score": 2, "note": ""}
+{"id": "dev-002", "score": 2, "note": ""}
+{"id": "dev-005", "score": 2, "note": ""}
+{"id": "dev-009", "score": 2, "note": ""}
+{"id": "dev-015", "score": 2, "note": ""}
+{"id": "dev-018", "score": 2, "note": ""}
+{"id": "dev-021", "score": 2, "note": ""}
+{"id": "dev-024", "score": 2, "note": ""}
+{"id": "dev-025", "score": 2, "note": ""}
+{"id": "dev-027", "score": 2, "note": ""}
+{"id": "dev-028", "score": 2, "note": ""}
+{"id": "dev-030", "score": 2, "note": ""}
+{"id": "dev-032", "score": 2, "note": ""}
+{"id": "dev-034", "score": 2, "note": ""}
+{"id": "dev-036", "score": 2, "note": ""}
+{"id": "dev-037", "score": 2, "note": ""}
+{"id": "dev-044", "score": 1, "note": ""}
+{"id": "dev-045", "score": 2, "note": "", "human_score": 2, "adjudication": "human kept: main points correct, judge over-penalized nuance"}
+{"id": "dev-048", "score": 2, "note": ""}
+{"id": "dev-052", "score": 2, "note": ""}
+{"id": "dev-053", "score": 2, "note": ""}
+{"id": "dev-055", "score": 2, "note": ""}
+{"id": "dev-056", "score": 2, "note": ""}
+{"id": "dev-059", "score": 2, "note": ""}
+{"id": "dev-063", "score": 2, "note": ""}
+{"id": "dev-064", "score": 2, "note": ""}
+{"id": "dev-066", "score": 2, "note": ""}
+{"id": "dev-067", "score": 2, "note": ""}
+{"id": "dev-068", "score": 2, "note": ""}
+{"id": "dev-072", "score": 2, "note": ""}
+{"id": "dev-074", "score": 2, "note": ""}
+{"id": "dev-078", "score": 2, "note": ""}
+{"id": "dev-081", "score": 2, "note": ""}
+{"id": "dev-084", "score": 2, "note": ""}
+{"id": "dev-085", "score": 2, "note": ""}
+{"id": "dev-087", "score": 1, "note": "", "human_score": 2, "adjudication": "judge correct: answer said spec.nodeName is undocumented, a required element"}
+{"id": "dev-091", "score": 2, "note": ""}
+{"id": "dev-094", "score": 2, "note": ""}
+{"id": "dev-096", "score": 2, "note": ""}
+{"id": "dev-103", "score": 2, "note": ""}
+{"id": "dev-104", "score": 2, "note": ""}
+{"id": "dev-105", "score": 1, "note": "", "human_score": 2, "adjudication": "judge correct: answer omitted draining nodes, a required element"}
+{"id": "dev-106", "score": 2, "note": ""}
+{"id": "dev-107", "score": 2, "note": ""}
+{"id": "dev-108", "score": 1, "note": "", "human_score": 2, "adjudication": "judge correct: answer did not state ephemeral containers can't have ports/probes"}
+{"id": "dev-110", "score": 2, "note": "", "human_score": 2, "adjudication": "human kept: rubric does not require pointing to other docs"}
+{"id": "dev-111", "score": 2, "note": ""}
+{"id": "dev-117", "score": 2, "note": ""}
+{"id": "dev-118", "score": 2, "note": ""}
+{"id": "dev-119", "score": 2, "note": ""}
