@@ -1,3 +1,5 @@
+import pytest
+
 from ingest.embed import store
 from ingest.load import load
 from rag.retrieve import vector_search
@@ -21,3 +23,33 @@ def test_vector_search_filters_by_version_and_returns_that_versions_url(conn):  
     assert [h.text for h in hits] == ["alpha", "gamma"]  # "beta" is 1.37 only
     assert hits[0].url == "https://kubernetes.io/docs/a/" and hits[0].version == "1.36"
     assert hits[0].score > hits[1].score
+
+
+def test_keyword_search_matches_any_word_and_filters_version(conn):  # noqa: F811
+    from rag.retrieve import keyword_search
+
+    load(
+        conn,
+        "heading-plain",
+        [
+            content("a", "Roll back a Deployment with kubectl rollout undo", ["1.37"]),
+            content("b", "Deployment strategies and rolling updates", ["1.37"]),
+            content("c", "Roll back a Deployment", ["1.36"]),
+            content("d", "Unrelated text about volumes", ["1.37"]),
+        ],
+    )
+    hits = keyword_search(conn, "How do I undo a Deployment rollout?", "1.37", k=5)
+    assert [h.text for h in hits][:1] == ["Roll back a Deployment with kubectl rollout undo"]
+    assert "Unrelated text about volumes" not in [h.text for h in hits]
+    assert all(h.version == "1.37" for h in hits)
+
+
+def test_rrf_rewards_agreement():
+    from rag.retrieve import Hit, rrf
+
+    def h(cid):
+        return Hit(cid, 0.0, f"t{cid}", "1.37", f"c{cid}", f"u{cid}", "T", ["T"], [])
+
+    fused = rrf([[h(1), h(2), h(3)], [h(3), h(4), h(1)]], k=4)
+    assert [x.content_id for x in fused][:2] == [1, 3]  # in both lists
+    assert fused[0].score == pytest.approx(1 / 61 + 1 / 63)

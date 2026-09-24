@@ -161,6 +161,9 @@ Kubernetes 공식 문서를 근거로 답하는 Q&A 서비스. 목적은 미국 
 
 결과는 `experiments/results.md`에 표로 누적 (지표 + 신뢰구간 + 비용 + 커밋 해시).
 
+### 실험 결과 요약
+- **E4 (검색 방식)**: dev 102문항, paired bootstrap. 키워드만(Postgres `ts_rank`, OR 질의)은 모든 지표에서 유의하게 나쁨(Recall@10 −0.126). 하이브리드(RRF k=60, 후보 50+50)는 Recall@5 +0.034 [−0.010, +0.083]로 유의하지 않음, MRR −0.011. 카테고리별로 multihop Hit@5 0.889→1.000, false premise Recall@10 0.50→0.92 개선, howto는 하락. 기본값은 벡터 유지, E5에서 rerank와 결합해 재평가
+
 ## 디렉터리 구조
 ```
 ingest/

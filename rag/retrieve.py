@@ -1,4 +1,11 @@
-"""Vector search over one index, filtered to one Kubernetes version."""
+"""Retrieval over one index, filtered to one Kubernetes version.
+
+- vector_search: embedding similarity through the model's HNSW index
+- keyword_search: Postgres full-text search over the `tsv` column. The question's lexemes
+  are OR-ed (an AND of every word in a natural-language question matches almost nothing)
+  and ranked with ts_rank normalized by document length; this is not BM25.
+- hybrid_search: Reciprocal Rank Fusion of both candidate lists
+"""
 
 from dataclasses import dataclass
 
@@ -16,6 +23,17 @@ class Hit:
     title: str
     heading_path: list[str]
     feature_states: list[dict]
+
+
+OCCURRENCE_JOIN = """
+    CROSS JOIN LATERAL (
+        SELECT * FROM occurrences o
+        WHERE o.content_id = c.id AND o.version = %(version)s
+        ORDER BY o.chunk_id LIMIT 1
+    ) o
+"""
+HIT_COLUMNS = "c.text, o.version, o.chunk_id, o.url, o.title, o.heading_path, o.feature_states"
+RRF_K = 60
 
 
 def vector(values: list[float]) -> str:
@@ -60,3 +78,62 @@ def vector_search(
             {"q": q, "version": version, "model": model, "index": index_name, "k": k},
         ).fetchall()
     return [Hit(*row) for row in rows]
+
+
+def keyword_search(
+    conn: psycopg.Connection,
+    question: str,
+    version: str,
+    *,
+    k: int = 8,
+    index_name: str = "heading-plain",
+) -> list[Hit]:
+    rows = conn.execute(
+        f"""
+        WITH q AS (
+            SELECT to_tsquery('english', coalesce(string_agg(DISTINCT lexeme, ' | '), ''))
+                AS query
+            FROM unnest(to_tsvector('english', %(question)s))
+        )
+        SELECT c.id, ts_rank(c.tsv, q.query, 1) AS score, {HIT_COLUMNS}
+        FROM contents c CROSS JOIN q
+        {OCCURRENCE_JOIN}
+        WHERE c.index_name = %(index)s AND c.versions @> ARRAY[%(version)s]
+          AND c.tsv @@ q.query
+        ORDER BY score DESC, c.id
+        LIMIT %(k)s
+        """,
+        {"question": question, "version": version, "index": index_name, "k": k},
+    ).fetchall()
+    return [Hit(*row) for row in rows]
+
+
+def rrf(rankings: list[list[Hit]], k: int, rrf_k: int = RRF_K) -> list[Hit]:
+    """Reciprocal Rank Fusion: score = sum of 1 / (rrf_k + rank) over the lists."""
+    scores: dict[int, float] = {}
+    first: dict[int, Hit] = {}
+    for ranking in rankings:
+        for rank, hit in enumerate(ranking, start=1):
+            scores[hit.content_id] = scores.get(hit.content_id, 0.0) + 1 / (rrf_k + rank)
+            first.setdefault(hit.content_id, hit)
+    order = sorted(scores, key=lambda cid: (-scores[cid], cid))[:k]
+    return [Hit(**{**first[cid].__dict__, "score": scores[cid]}) for cid in order]
+
+
+def hybrid_search(
+    conn: psycopg.Connection,
+    query_vector: list[float],
+    question: str,
+    version: str,
+    *,
+    k: int = 8,
+    candidates: int = 50,
+    model: str = "voyage-4",
+    dim: int = 1024,
+    index_name: str = "heading-plain",
+) -> list[Hit]:
+    dense = vector_search(
+        conn, query_vector, version, k=candidates, model=model, dim=dim, index_name=index_name
+    )
+    sparse = keyword_search(conn, question, version, k=candidates, index_name=index_name)
+    return rrf([dense, sparse], k)

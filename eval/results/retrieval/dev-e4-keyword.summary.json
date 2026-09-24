@@ -1,0 +1,70 @@
+{
+  "name": "e4-keyword",
+  "split": "dev",
+  "config": {
+    "method": "keyword",
+    "model": "voyage-4",
+    "index_name": "heading-plain",
+    "k": 20
+  },
+  "commit": "6b4f709",
+  "time": "2026-09-23T21:19:16",
+  "skipped_without_evidence": 18,
+  "n": 102,
+  "overall": {
+    "recall@1": 0.3627,
+    "hit@1": 0.4314,
+    "recall@3": 0.5376,
+    "hit@3": 0.6275,
+    "recall@5": 0.701,
+    "hit@5": 0.7941,
+    "recall@10": 0.7647,
+    "hit@10": 0.8529,
+    "recall@20": 0.8268,
+    "hit@20": 0.8922,
+    "mrr": 0.5662,
+    "ndcg@10": 0.6121
+  },
+  "by_category": {
+    "fact": {
+      "n": 30,
+      "recall@5": 0.8167,
+      "recall@10": 0.8667,
+      "hit@5": 0.8333,
+      "mrr": 0.5227,
+      "ndcg@10": 0.6169
+    },
+    "false_premise": {
+      "n": 6,
+      "recall@5": 0.5833,
+      "recall@10": 0.5833,
+      "hit@5": 0.6667,
+      "mrr": 0.5504,
+      "ndcg@10": 0.5073
+    },
+    "howto": {
+      "n": 24,
+      "recall@5": 0.5833,
+      "recall@10": 0.6667,
+      "hit@5": 0.625,
+      "mrr": 0.4142,
+      "ndcg@10": 0.5205
+    },
+    "multihop": {
+      "n": 18,
+      "recall@5": 0.5278,
+      "recall@10": 0.6389,
+      "hit@5": 0.8889,
+      "mrr": 0.6595,
+      "ndcg@10": 0.5394
+    },
+    "version": {
+      "n": 24,
+      "recall@5": 0.8333,
+      "recall@10": 0.875,
+      "hit@5": 0.875,
+      "mrr": 0.7068,
+      "ndcg@10": 0.7784
+    }
+  }
+}

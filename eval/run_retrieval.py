@@ -24,7 +24,7 @@ from eval.golden import load_split
 from eval.metrics_retrieval import score
 from ingest.embed import CACHE_DIR, Cache
 from rag.embedders import EMBEDDERS
-from rag.retrieve import vector_search
+from rag.retrieve import hybrid_search, keyword_search, vector_search
 from rag.settings import get_settings
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -65,15 +65,30 @@ def git_commit() -> str:
     return out.stdout.strip()
 
 
-def run(conn, embedder, items, *, k: int, index_name: str, cache: Cache) -> list[dict]:
+METHODS = ("vector", "keyword", "hybrid")
+
+
+def search(conn, method: str, item, vector, *, k: int, embedder, index_name: str):
+    if method == "vector":
+        return vector_search(
+            conn, vector, item.version, k=k, model=embedder.name, index_name=index_name
+        )
+    if method == "keyword":
+        return keyword_search(conn, item.question, item.version, k=k, index_name=index_name)
+    return hybrid_search(
+        conn, vector, item.question, item.version, k=k, model=embedder.name, index_name=index_name
+    )
+
+
+def run(
+    conn, embedder, items, *, k: int, index_name: str, cache: Cache, method: str = "vector"
+) -> list[dict]:
     items = [i for i in items if i.evidence]
     vectors = query_vectors(embedder, [i.question for i in items], cache)
     rows = []
     for item, vector in zip(items, vectors, strict=True):
         t0 = time.monotonic()
-        hits = vector_search(
-            conn, vector, item.version, k=k, model=embedder.name, index_name=index_name
-        )
+        hits = search(conn, method, item, vector, k=k, embedder=embedder, index_name=index_name)
         latency = time.monotonic() - t0
         facts = [[(p.url, p.quote) for p in e.passages()] for e in item.evidence]
         metrics = score([(h.url, h.text) for h in hits], facts)
@@ -97,6 +112,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--model", default="voyage-4", choices=sorted(EMBEDDERS))
     parser.add_argument("--index-name", default="heading-plain")
     parser.add_argument("--k", type=int, default=20)
+    parser.add_argument("--method", choices=METHODS, default="vector")
     parser.add_argument("--out-dir", type=Path, default=RESULTS_DIR)
     args = parser.parse_args(argv)
     if args.split == "test":
@@ -106,11 +122,24 @@ def main(argv: list[str] | None = None) -> None:
     cache = Cache(CACHE_DIR / f"{embedder.name}-query.jsonl")
     items = load_split(args.split)
     with psycopg.connect(get_settings().database_url) as conn:
-        rows = run(conn, embedder, items, k=args.k, index_name=args.index_name, cache=cache)
+        rows = run(
+            conn,
+            embedder,
+            items,
+            k=args.k,
+            index_name=args.index_name,
+            cache=cache,
+            method=args.method,
+        )
     summary = {
         "name": args.name,
         "split": args.split,
-        "config": {"model": args.model, "index_name": args.index_name, "k": args.k},
+        "config": {
+            "method": args.method,
+            "model": args.model,
+            "index_name": args.index_name,
+            "k": args.k,
+        },
         "commit": git_commit(),
         "time": time.strftime("%Y-%m-%dT%H:%M:%S"),
         "skipped_without_evidence": len(items) - len(rows),
