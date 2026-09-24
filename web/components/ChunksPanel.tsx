@@ -22,7 +22,9 @@ export function ChunksPanel({ hits, cited }: { hits: Hit[]; cited: Set<string> }
             {cited.has(h.chunk_id) && (
               <span className="rounded bg-accent-soft px-1.5 text-xs text-accent">cited</span>
             )}
-            <span className="font-mono text-xs tabular-nums text-muted">{h.score.toFixed(3)}</span>
+            {h.score !== null && (
+              <span className="font-mono text-xs tabular-nums text-muted">{h.score.toFixed(3)}</span>
+            )}
           </div>
           {h.feature_states.length > 0 && (
             <div className="ml-7 mt-1 text-xs text-muted">

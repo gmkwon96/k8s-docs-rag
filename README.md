@@ -2,7 +2,7 @@
 
 Q&A over the official Kubernetes documentation, with sentence-level citations, Kubernetes-version awareness, and an evaluation pipeline that reports every change as a number with a confidence interval.
 
-> **Status:** evaluation, experiments, API and UI done; deployment pending. See [`plan.md`](plan.md) for the design and milestones.
+> **Status:** evaluation, experiments, API, UI and static demo done. See [`plan.md`](plan.md) for the design and milestones.
 
 ## Local setup (macOS)
 
@@ -48,6 +48,15 @@ cd web && npm install && npm run dev   # http://localhost:3000, eval dashboard a
 ```
 
 Live answers are off by default because they spend the operator's Claude budget; the UI then shows the answers from the latest eval run and still runs retrieval live.
+
+**Static demo.** The public demo is a static build with no backend: example answers, the chunks each answer was generated from, and the eval dashboard, all read from JSON committed under `web/public/data/`. Hosting it costs nothing and no API key is involved.
+
+```sh
+uv run python -m scripts.export_demo                     # web/public/data/*.json from eval results
+cd web && STATIC_EXPORT=1 BASE_PATH=/k8s-docs-rag npx next build   # -> web/out/
+```
+
+`.github/workflows/pages.yml` builds and publishes it to GitHub Pages (Settings → Pages → Source: GitHub Actions).
 
 `ingest.fetch --update --versions 1.35 1.36 1.37` re-pins each version to its branch tip: `release-1.xx` if that branch exists, else `main` (which documents the current release).
 

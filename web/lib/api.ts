@@ -1,10 +1,15 @@
 // Types and calls for the FastAPI service, proxied under /api (see next.config.ts).
+// In the static demo (NEXT_PUBLIC_STATIC=1) there is no API: examples and eval results
+// come from JSON exported by scripts/export_demo.py, and live search is unavailable.
+
+export const STATIC = process.env.NEXT_PUBLIC_STATIC === "1";
+export const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
 export type VersionChoice = { version: string; requested: string | null; note: string };
 
 export type Hit = {
   content_id: number;
-  score: number;
+  score: number | null; // null in the static demo (chunks exported by id)
   text: string;
   version: string;
   chunk_id: string;
@@ -32,7 +37,19 @@ export type Example = {
   answer: string;
   found: boolean;
   sources: Source[];
+  hits?: Hit[]; // static demo: the chunks this answer was generated from
 };
+
+type ExamplesData = { run: string; versions?: string[]; examples: Example[] };
+let staticData: Promise<ExamplesData> | null = null;
+
+function staticExamples(): Promise<ExamplesData> {
+  staticData ??= fetch(`${BASE_PATH}/data/examples.json`).then((r) => {
+    if (!r.ok) throw new Error(`Could not load examples (${r.status})`);
+    return r.json();
+  });
+  return staticData;
+}
 
 function failure(what: string, status: number): Error {
   if (status === 429) return new Error("Too many requests from this address; try again in a minute.");
@@ -40,12 +57,14 @@ function failure(what: string, status: number): Error {
 }
 
 export async function health(): Promise<{ versions: string[] }> {
+  if (STATIC) return { versions: (await staticExamples()).versions ?? [] };
   const r = await fetch("/api/health");
   if (!r.ok) throw new Error(`API unavailable (${r.status})`);
   return r.json();
 }
 
-export async function examples(): Promise<{ run: string; examples: Example[] }> {
+export async function examples(): Promise<ExamplesData> {
+  if (STATIC) return staticExamples();
   const r = await fetch("/api/examples");
   if (!r.ok) throw new Error(`Could not load examples (${r.status})`);
   return r.json();
@@ -55,6 +74,7 @@ export async function retrieve(
   question: string,
   version: string | null,
 ): Promise<{ version: VersionChoice; hits: Hit[]; latency: Record<string, number> }> {
+  if (STATIC) throw new Error("Live search is not available in the static demo.");
   const r = await fetch("/api/retrieve", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -100,4 +120,10 @@ export async function* ask(question: string, version: string | null): AsyncGener
       yield { event: fields.event, data: JSON.parse(fields.data) } as AskEvent;
     }
   }
+}
+
+export async function evalResults() {
+  const r = await fetch(STATIC ? `${BASE_PATH}/data/eval-results.json` : "/api/eval/results");
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
 }

@@ -9,6 +9,7 @@ import {
   type Hit,
   type VersionChoice,
   LiveDisabled,
+  STATIC,
   ask,
   examples as loadExamples,
   health,
@@ -70,7 +71,7 @@ export default function AskPage() {
         found: ex.found,
         sources: ex.sources.map((s, i) => ({ ...s, number: i + 1 })),
       },
-      hits: null,
+      hits: ex.hits ?? null,
       fromExample: ex.id,
     });
   }
@@ -162,7 +163,24 @@ export default function AskPage() {
       </aside>
 
       <section className="order-1 min-w-0 space-y-4 lg:order-2">
-        <form onSubmit={submit} className="space-y-2">
+        {STATIC && (
+          <div className="rounded-md border border-line bg-surface p-4 text-sm">
+            <p className="font-medium">Static demo</p>
+            <p className="mt-1 text-muted">
+              Pick an example question to see the answer the pipeline generated in its latest
+              eval run, the sources it cited, and the chunks it was given. Live questions need
+              the API and a database; see the{" "}
+              <a
+                className="text-accent hover:underline"
+                href="https://github.com/gmkwon96/k8s-docs-rag#local-setup-macos"
+              >
+                local setup
+              </a>
+              .
+            </p>
+          </div>
+        )}
+        <form onSubmit={submit} className="space-y-2" hidden={STATIC}>
           <textarea
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
@@ -230,7 +248,7 @@ export default function AskPage() {
               )}
             </article>
 
-            <details open={!!shown.hits && !shown.answer} className="group">
+            <details open={STATIC || (!!shown.hits && !shown.answer)} className="group">
               <summary
                 className="cursor-pointer text-sm font-medium"
                 onClick={() => !shown.hits && !busy && showChunks()}

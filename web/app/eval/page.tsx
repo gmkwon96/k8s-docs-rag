@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { evalResults } from "@/lib/api";
 
 // The eval dashboard: every run in eval/results with its 95% bootstrap interval, so a
 // difference that sits inside the intervals reads as noise at a glance.
@@ -113,8 +114,7 @@ export default function EvalPage() {
   const [split, setSplit] = useState<"dev" | "test">("dev");
 
   useEffect(() => {
-    fetch("/api/eval/results")
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+    evalResults()
       .then(setResults)
       .catch((e) => setError(String(e.message)));
   }, []);
