@@ -5,4 +5,4 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 # Raw docs checkouts (Milestone 1)
-data/
+/data/
