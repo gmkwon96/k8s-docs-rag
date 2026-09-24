@@ -49,13 +49,17 @@ def vector_search(
     model: str = "voyage-4",
     dim: int = 1024,
     index_name: str = "heading-plain",
+    version_filter: bool = True,
 ) -> list[Hit]:
     """Top-k contents present in `version`, with that version's URL and metadata.
 
     Uses the model's partial HNSW index (same cast and model filter). Iterative scan keeps
     returning candidates when the version filter rejects some, so we still get k hits.
+    With version_filter=False (experiment E6) any version's text can match; each hit then
+    carries `version`'s occurrence if it has one, else the newest version's.
     """
     q = vector(query_vector)
+    version_clause = "AND c.versions @> ARRAY[%(version)s]" if version_filter else ""
     with conn.transaction():
         conn.execute("SET LOCAL hnsw.iterative_scan = relaxed_order")
         rows = conn.execute(
@@ -67,11 +71,13 @@ def vector_search(
             JOIN contents c ON c.id = e.content_id
             CROSS JOIN LATERAL (
                 SELECT * FROM occurrences o
-                WHERE o.content_id = c.id AND o.version = %(version)s
-                ORDER BY o.chunk_id LIMIT 1
+                WHERE o.content_id = c.id
+                ORDER BY o.version = %(version)s DESC, string_to_array(o.version, '.')::int[] DESC,
+                         o.chunk_id
+                LIMIT 1
             ) o
             WHERE e.model = %(model)s AND c.index_name = %(index)s
-              AND c.versions @> ARRAY[%(version)s]
+              {version_clause}
             ORDER BY e.embedding::vector({dim}) <=> %(q)s::vector({dim})
             LIMIT %(k)s
             """,

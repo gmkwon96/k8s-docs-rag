@@ -1,17 +1,18 @@
 {
-  "name": "e5-vector-rerank50",
+  "name": "e7-union",
   "split": "dev",
   "config": {
     "method": "vector",
     "rerank": "rerank-3",
     "candidates": 50,
-    "query_mode": "original",
+    "query_mode": "union",
+    "version_filter": true,
     "model": "voyage-4",
     "index_name": "heading-plain",
     "k": 20
   },
   "commit": "61b06de",
-  "time": "2026-09-23T23:33:13",
+  "time": "2026-09-23T23:41:42",
   "skipped_without_evidence": 18,
   "n": 102,
   "overall": {
@@ -26,7 +27,7 @@
     "recall@20": 0.9624,
     "hit@20": 0.9804,
     "mrr": 0.8499,
-    "ndcg@10": 0.8838
+    "ndcg@10": 0.8837
   },
   "by_category": {
     "fact": {
@@ -59,7 +60,7 @@
       "recall@10": 0.8981,
       "hit@5": 1.0,
       "mrr": 0.8861,
-      "ndcg@10": 0.8214
+      "ndcg@10": 0.8208
     },
     "version": {
       "n": 24,

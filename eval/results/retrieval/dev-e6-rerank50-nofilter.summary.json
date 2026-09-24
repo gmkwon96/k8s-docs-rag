@@ -1,73 +1,74 @@
 {
-  "name": "e5-vector-rerank50",
+  "name": "e6-rerank50-nofilter",
   "split": "dev",
   "config": {
     "method": "vector",
     "rerank": "rerank-3",
     "candidates": 50,
     "query_mode": "original",
+    "version_filter": false,
     "model": "voyage-4",
     "index_name": "heading-plain",
     "k": 20
   },
   "commit": "61b06de",
-  "time": "2026-09-23T23:33:13",
+  "time": "2026-09-23T23:35:01",
   "skipped_without_evidence": 18,
   "n": 102,
   "overall": {
-    "recall@1": 0.6748,
-    "hit@1": 0.7843,
-    "recall@3": 0.8268,
-    "hit@3": 0.8922,
-    "recall@5": 0.866,
-    "hit@5": 0.9314,
-    "recall@10": 0.933,
-    "hit@10": 0.9608,
-    "recall@20": 0.9624,
+    "recall@1": 0.6503,
+    "hit@1": 0.7549,
+    "recall@3": 0.8023,
+    "hit@3": 0.8725,
+    "recall@5": 0.8464,
+    "hit@5": 0.9118,
+    "recall@10": 0.9183,
+    "hit@10": 0.951,
+    "recall@20": 0.9526,
     "hit@20": 0.9804,
-    "mrr": 0.8499,
-    "ndcg@10": 0.8838
+    "mrr": 0.8261,
+    "ndcg@10": 0.8588
   },
   "by_category": {
     "fact": {
       "n": 30,
-      "recall@5": 0.9667,
-      "recall@10": 1.0,
-      "hit@5": 0.9667,
-      "mrr": 0.9333,
-      "ndcg@10": 0.9722
+      "recall@5": 0.9333,
+      "recall@10": 0.9667,
+      "hit@5": 0.9333,
+      "mrr": 0.8958,
+      "ndcg@10": 0.9325
     },
     "false_premise": {
       "n": 6,
       "recall@5": 0.3333,
       "recall@10": 0.4167,
       "hit@5": 0.3333,
-      "mrr": 0.2599,
-      "ndcg@10": 0.2725
+      "mrr": 0.2571,
+      "ndcg@10": 0.268
     },
     "howto": {
       "n": 24,
       "recall@5": 0.8958,
       "recall@10": 0.9583,
       "hit@5": 0.9583,
-      "mrr": 0.8417,
-      "ndcg@10": 0.9179
+      "mrr": 0.8208,
+      "ndcg@10": 0.8983
     },
     "multihop": {
       "n": 18,
-      "recall@5": 0.7407,
-      "recall@10": 0.8981,
-      "hit@5": 1.0,
-      "mrr": 0.8861,
-      "ndcg@10": 0.8214
+      "recall@5": 0.6852,
+      "recall@10": 0.8704,
+      "hit@5": 0.9444,
+      "mrr": 0.8537,
+      "ndcg@10": 0.7865
     },
     "version": {
       "n": 24,
       "recall@5": 0.9375,
       "recall@10": 0.9792,
       "hit@5": 0.9583,
-      "mrr": 0.874,
-      "ndcg@10": 0.9389
+      "mrr": 0.8657,
+      "ndcg@10": 0.9292
     }
   }
 }

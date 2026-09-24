@@ -33,14 +33,26 @@ RESULTS_DIR = ROOT / "eval" / "results" / "retrieval"
 HEADLINE = ("recall@5", "recall@10", "hit@5", "mrr", "ndcg@10")
 
 
-def query_vectors(embedder, questions: list[str], cache: Cache) -> list[list[float]]:
-    """Query embeddings, from the cache when possible; one batched call for the rest."""
-    keys = [hashlib.sha256(f"query\n{q}".encode()).hexdigest() for q in questions]
+def query_vectors(
+    embedder, questions: list[str], cache: Cache, input_type: str = "query"
+) -> list[list[float]]:
+    """Embeddings for search, from the cache when possible; one batched call for the rest."""
+    keys = [hashlib.sha256(f"{input_type}\n{q}".encode()).hexdigest() for q in questions]
     missing = sorted({(k, q) for k, q in zip(keys, questions, strict=True) if cache.get(k) is None})
     if missing:
-        vectors, _ = embedder.embed([q for _, q in missing], "query")
+        vectors, _ = embedder.embed([q for _, q in missing], input_type)
         cache.add([(k, v) for (k, _), v in zip(missing, vectors, strict=True)])
     return [cache.get(k) for k in keys]
+
+
+def load_rewrites(split: str, query_mode: str) -> dict[str, str] | None:
+    if query_mode == "original":
+        return None
+    mode = "hyde" if query_mode == "hyde" else "rewrite"
+    path = ROOT / "eval" / "results" / "rewrites" / f"{split}-{mode}.jsonl"
+    if not path.exists():
+        raise SystemExit(f"{path} not found; run eval.make_rewrites --mode {mode} first")
+    return {r["id"]: r["text"] for r in map(json.loads, path.read_text().splitlines())}
 
 
 def summarize(rows: list[dict]) -> dict:
@@ -69,11 +81,21 @@ def git_commit() -> str:
 METHODS = ("vector", "keyword", "hybrid")
 
 
-def search(conn, method: str, item, vector, *, k: int, embedder, index_name: str):
+def search(
+    conn, method: str, item, vector, *, k: int, embedder, index_name: str, version_filter=True
+):
     if method == "vector":
         return vector_search(
-            conn, vector, item.version, k=k, model=embedder.name, index_name=index_name
+            conn,
+            vector,
+            item.version,
+            k=k,
+            model=embedder.name,
+            index_name=index_name,
+            version_filter=version_filter,
         )
+    if not version_filter:
+        raise SystemExit("--no-version-filter is only implemented for --method vector")
     if method == "keyword":
         return keyword_search(conn, item.question, item.version, k=k, index_name=index_name)
     return hybrid_search(
@@ -92,15 +114,49 @@ def run(
     method: str = "vector",
     reranker: VoyageReranker | None = None,
     candidates: int = 50,
+    query_mode: str = "original",
+    rewrites: dict[str, str] | None = None,
+    version_filter: bool = True,
 ) -> list[dict]:
-    """With a reranker, fetch `candidates` hits and keep the reranker's top k."""
+    """With a reranker, fetch `candidates` hits and keep the reranker's top k.
+
+    query_mode (E7) picks what is embedded: the question, its rewrite, a HyDE passage
+    (embedded as a document), or "union": candidates for the question and for its rewrite,
+    merged. Reranking always uses the original question."""
     items = [i for i in items if i.evidence]
     vectors = query_vectors(embedder, [i.question for i in items], cache)
+    if query_mode in ("rewrite", "union"):
+        alt = query_vectors(embedder, [rewrites[i.id] for i in items], cache)
+    elif query_mode == "hyde":
+        alt = query_vectors(embedder, [rewrites[i.id] for i in items], cache, "document")
     rows = []
-    for item, vector in zip(items, vectors, strict=True):
+    for n, (item, vector) in enumerate(zip(items, vectors, strict=True)):
         t0 = time.monotonic()
         depth = candidates if reranker else k
-        hits = search(conn, method, item, vector, k=depth, embedder=embedder, index_name=index_name)
+        search_vector = vector if query_mode in ("original", "union") else alt[n]
+        hits = search(
+            conn,
+            method,
+            item,
+            search_vector,
+            k=depth,
+            embedder=embedder,
+            index_name=index_name,
+            version_filter=version_filter,
+        )
+        if query_mode == "union":
+            seen = {h.content_id for h in hits}
+            extra = search(
+                conn,
+                method,
+                item,
+                alt[n],
+                k=depth,
+                embedder=embedder,
+                index_name=index_name,
+                version_filter=version_filter,
+            )
+            hits += [h for h in extra if h.content_id not in seen]
         if reranker:
             hits = reranker.rerank(item.question, hits, k)
         latency = time.monotonic() - t0
@@ -129,6 +185,10 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--method", choices=METHODS, default="vector")
     parser.add_argument("--rerank", choices=FREE_TIER_MODELS, help="rerank candidates")
     parser.add_argument("--candidates", type=int, default=50, help="hits fed to the reranker")
+    parser.add_argument(
+        "--query-mode", choices=["original", "rewrite", "hyde", "union"], default="original"
+    )
+    parser.add_argument("--no-version-filter", action="store_true", help="E6: search all versions")
     parser.add_argument("--out-dir", type=Path, default=RESULTS_DIR)
     args = parser.parse_args(argv)
     if args.split == "test":
@@ -148,6 +208,9 @@ def main(argv: list[str] | None = None) -> None:
             method=args.method,
             reranker=VoyageReranker(args.rerank) if args.rerank else None,
             candidates=args.candidates,
+            query_mode=args.query_mode,
+            rewrites=load_rewrites(args.split, args.query_mode),
+            version_filter=not args.no_version_filter,
         )
     summary = {
         "name": args.name,
@@ -156,6 +219,8 @@ def main(argv: list[str] | None = None) -> None:
             "method": args.method,
             "rerank": args.rerank,
             "candidates": args.candidates if args.rerank else None,
+            "query_mode": args.query_mode,
+            "version_filter": not args.no_version_filter,
             "model": args.model,
             "index_name": args.index_name,
             "k": args.k,
